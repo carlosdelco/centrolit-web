@@ -170,6 +170,24 @@
       "precio_bcv": 10.5,
       "montaje_m2": 5.95,
       "montaje_ml": 0
+    },
+    {
+      "categoria": "Paneles y Láminas",
+      "producto": "Lámina translúcida",
+      "ancho_util": null,
+      "precio_efectivo": null,
+      "precio_bcv": null,
+      "montaje_m2": null,
+      "montaje_ml": null
+    },
+    {
+      "categoria": "Paneles y Láminas",
+      "producto": "Lámina climatizada",
+      "ancho_util": null,
+      "precio_efectivo": null,
+      "precio_bcv": null,
+      "montaje_m2": null,
+      "montaje_ml": null
     }
   ],
   "parametros": {

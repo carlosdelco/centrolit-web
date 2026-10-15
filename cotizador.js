@@ -6,7 +6,7 @@ const Cotizador = (() => {
   const TIPOS_OBRA_DEFECTO = ['Nave industrial / galpón', 'Centro comercial / local comercial', 'Institucional', 'Vivienda / residencial', 'Retechado', 'Otro'];
 
   let root, cat, params, textos, tiposObra, puedeInterna;
-  let S = { pago: 'efectivo', modo: 'm2', vista: 'cliente', imagen: null, autoComentario: '', autoNumero: '' };
+  let S = { pago: 'efectivo', modo: 'm2', vista: 'cliente', imagen: null, plano: null, autoComentario: '', autoNumero: '', secciones: [] };
   let ultima = null;
 
   const $ = (id) => root.querySelector('#' + id);
@@ -46,22 +46,38 @@ const Cotizador = (() => {
     <div class="card"><h2><span class="dot"></span>Datos del proyecto</h2>
       <label>N° de oferta</label><input type="text" id="numOferta">
       <label>Cliente</label><input type="text" id="cliente" placeholder="Nombre o razón social">
+      <label>RIF del cliente</label><input type="text" id="clienteRif" placeholder="J-00000000-0">
       <label>Obra / Proyecto</label><input type="text" id="proyecto">
-      <label>Ubicación</label><input type="text" id="ubicacion">
+      <label>Ubicación (ciudad / estado)</label><input type="text" id="ubicacion">
+      <label>Dirección fiscal del cliente</label><input type="text" id="direccionFiscal">
+      <label>Dirección de entrega (obra) <button type="button" class="link" id="copiarDireccion">usar la fiscal</button></label>
+      <input type="text" id="direccionEntrega" placeholder="Casi nunca es la misma que la fiscal">
+      <div class="row2">
+        <div><label>Persona de contacto</label><input type="text" id="contactoNombre"></div>
+        <div><label>Teléfono</label><input type="text" id="contactoTelefono"></div>
+      </div>
+      <label>Correo del contacto</label><input type="text" id="contactoCorreo">
     </div>
 
     <div class="card"><h2><span class="dot"></span>Especificación técnica</h2>
-      <label>Sistema</label><select id="categoria"></select>
-      <label>Producto</label><select id="producto"></select>
-      <label>Modo de medición</label>
-      <div class="toggle" id="medidaToggle"><button data-v="m2" class="active">Área directa (m²)</button><button data-v="ml">Metros lineales</button></div>
-      <div id="areaDirectaBox"><label>Área a cubrir (m²)</label><input type="number" id="area" value="0" min="0" step="1"></div>
-      <div id="areaMlBox" hidden>
-        <div class="row2">
-          <div><label>Largo total (ml)</label><input type="number" id="mlLargo" min="0" step="0.1"></div>
-          <div><label>Ancho de cobertura (m)</label><input type="number" id="mlAncho" min="0" step="0.01"></div>
+      <label class="chk"><input type="checkbox" id="incluirSecciones"> Cotizar por secciones (varias aguas, o techo + pantalla por separado)</label>
+      <div class="hint">Úsalo cuando el techo tiene aguas de distinto tamaño, son varios techos que el cliente quiere ver por etapas, o hay techo y pantalla con sistemas distintos.</div>
+      <div id="seccionUnicaBox">
+        <label>Sistema</label><select id="categoria"></select>
+        <label>Producto</label><select id="producto"></select>
+        <label>Modo de medición</label>
+        <div class="toggle" id="medidaToggle"><button data-v="m2" class="active">Área directa (m²)</button><button data-v="ml">Metros lineales</button></div>
+        <div id="areaDirectaBox"><label>Área a cubrir (m²)</label><input type="number" id="area" value="0" min="0" step="1"></div>
+        <div id="areaMlBox" hidden>
+          <div class="row2">
+            <div><label>Largo total (ml)</label><input type="number" id="mlLargo" min="0" step="0.1"></div>
+            <div><label>Ancho de cobertura (m)</label><input type="number" id="mlAncho" min="0" step="0.01"></div>
+          </div>
+          <div class="hint">Área calculada: <strong id="mlAreaCalc">— m²</strong>. Confirma el ancho de cobertura real de la lámina/panel.</div>
         </div>
-        <div class="hint">Área calculada: <strong id="mlAreaCalc">— m²</strong>. Confirma el ancho de cobertura real de la lámina/panel.</div>
+      </div>
+      <div id="seccionesBox" hidden>
+        <div id="seccionesLista"></div>
       </div>
       <label>Forma de pago</label>
       <div class="toggle" id="pagoToggle"><button data-v="efectivo" class="active">Efectivo USD</button><button data-v="bcv">Bs. a tasa BCV</button></div>
@@ -73,7 +89,7 @@ const Cotizador = (() => {
           <div><label>Tornillo (US$/unid.)</label><input type="number" id="precioTornilloManual" step="0.01" min="0"></div>
         </div>
         <label>Remate (US$/ml)</label><input type="number" id="precioRemateManual" step="0.01" min="0">
-        <div class="hint">Sustituyen a la lista oficial solo para esta oferta.</div>
+        <div class="hint">Sustituyen a la lista oficial solo para esta oferta. En modo secciones se aplican a todas por igual.</div>
       </div>
     </div>
 
@@ -82,8 +98,11 @@ const Cotizador = (() => {
         <div><label>Desperdicio (%)</label><input type="number" id="desperdicio" min="0" max="30" step="0.5"></div>
         <div><label>Tornillos / m²</label><input type="number" id="tornillos" min="0" step="0.5"></div>
       </div>
-      <label>Remates / flashings (metros lineales)</label><input type="number" id="remates" value="0" min="0" step="1">
-      <div class="hint">Se venden por pieza de 2,40 m: se redondea hacia arriba al múltiplo más cercano.</div>
+      <div id="remateUnicoBox">
+        <label>Remates / flashings (metros lineales)</label><input type="number" id="remates" value="0" min="0" step="1">
+        <div class="hint">Se venden por pieza de 2,40 m: se redondea hacia arriba al múltiplo más cercano.</div>
+      </div>
+      <div class="hint" id="remateSeccionesHint" hidden>Los remates de cada sección se ingresan en "Secciones", dentro de cada una.</div>
       <label class="chk"><input type="checkbox" id="incluirMontaje"> Incluir montaje en esta oferta</label>
       <div class="manual-box" id="montajeBox" hidden>
         <div class="row2">
@@ -91,6 +110,15 @@ const Cotizador = (() => {
           <div><label>Montaje remates (US$/ml)</label><input type="number" id="precioMontajeMl" step="0.01" min="0" value="0"></div>
         </div>
         <div class="hint">Precargado solo para productos con precio de montaje en la lista. Si no, se ingresa a mano.</div>
+        <div class="row2">
+          <div><label>Días de grúa</label><input type="number" id="montajeDiasGrua" step="1" min="0" value="0"></div>
+          <div><label>Precio grúa (US$/día)</label><input type="number" id="montajePrecioGruaDia" step="1" min="0" value="0"></div>
+        </div>
+        <div class="row2">
+          <div><label>Andamios especiales (US$)</label><input type="number" id="montajeAndamios" step="1" min="0" value="0"></div>
+          <div><label>Supervisor fijo en obra (US$)</label><input type="number" id="montajeSupervisor" step="1" min="0" value="0"></div>
+        </div>
+        <div class="hint">Días de grúa (p. ej. izado en standing seam), andamios especiales y supervisor fijo: solo cuando esta obra lo requiera.</div>
       </div>
       <label class="chk"><input type="checkbox" id="incluirFlete"> Incluir flete en esta oferta</label>
       <div class="manual-box" id="fleteBox" hidden>
@@ -115,6 +143,15 @@ const Cotizador = (() => {
       <div id="imagenUploadBox" hidden style="margin-top:10px"><input type="file" id="imagenInput" accept="image/*"></div>
     </div>
 
+    <div class="card"><h2><span class="dot"></span>Plano del cliente (uso interno, opcional)</h2>
+      <label class="chk"><input type="checkbox" id="incluirPlano"> Adjuntar el plano/archivo que suministró el cliente</label>
+      <div id="planoUploadBox" hidden style="margin-top:10px">
+        <input type="file" id="planoInput" accept=".pdf,.jpg,.jpeg,.png,.dwg,.dxf">
+        <div class="hint" id="planoActual"></div>
+      </div>
+      <div class="hint">Se guarda junto con la oferta (botón "Guardar oferta" abajo). No se incluye en el PDF ni el Excel del cliente.</div>
+    </div>
+
     ${puedeInterna ? `
     <div class="card"><h2><span class="dot" style="background:var(--brown)"></span>Costes y márgenes (uso interno — Dirección)</h2>
       <label class="chk"><input type="checkbox" id="incluirMargen"> Habilitar vista interna con costos y márgenes</label>
@@ -135,7 +172,12 @@ const Cotizador = (() => {
       <button class="btn" data-act="pdf-cliente">📄 PDF Vista Cliente</button>
       ${puedeInterna ? '<button class="btn brown" data-act="pdf-interna">📄 PDF Vista Interna</button>' : ''}
     </div>
-    <div class="btnrow"><button class="btn navy" data-act="xlsx">📊 Exportar a Excel</button></div>`;
+    <div class="btnrow"><button class="btn navy" data-act="xlsx">📊 Exportar a Excel</button></div>
+    <div class="btnrow">
+      <button class="btn" data-act="guardar-oferta">💾 Guardar oferta</button>
+      <button class="btn" data-act="ofertas-guardadas">📂 Ofertas guardadas</button>
+    </div>
+    <div class="hint">Guardado solo en este equipo (ver "Plano del cliente" arriba). Permite reabrir y seguir editando una oferta más tarde.</div>`;
   }
 
   function docHtml() {
@@ -200,11 +242,62 @@ const Cotizador = (() => {
     bind();
     if (previo) restaurar(previo);
     aplicarComentarioAuto();
+    actualizarPlanoHint();
     calcular();
   }
 
+  // Sin precio_efectivo NI precio_bcv en la lista: referencia pendiente de confirmar (punto 2 del
+  // feedback — p. ej. láminas translúcidas/climatizadas). No se puede seleccionar para cotizar.
+  const sinPrecio = (p) => p.efectivo == null && p.bcv == null;
+  const etiquetaProducto = (p) => p.n + (sinPrecio(p) ? ' — PRECIO PENDIENTE (no disponible)' : '');
+
   function poblarProductos() {
-    $('producto').innerHTML = cat.categorias[val('categoria')].map((p, i) => `<option value="${i}">${esc(p.n)}</option>`).join('');
+    $('producto').innerHTML = cat.categorias[val('categoria')].map((p, i) => `<option value="${i}" ${sinPrecio(p) ? 'disabled' : ''}>${esc(etiquetaProducto(p))}</option>`).join('');
+  }
+
+  // ---------- Secciones (varias aguas / techo + pantalla — punto 3 del feedback) ----------
+  function productosPlanos() {
+    const out = [];
+    for (const catN of Object.keys(cat.categorias)) {
+      cat.categorias[catN].forEach((p, i) => out.push({ value: catN + '||' + i, label: `${catN} — ${etiquetaProducto(p)}`, producto: p, sinPrecio: sinPrecio(p) }));
+    }
+    return out;
+  }
+  function productoPorValor(v) {
+    const [catN, i] = v.split('||');
+    return cat.categorias[catN] && cat.categorias[catN][+i];
+  }
+
+  function nuevaSeccion() {
+    return { id: 's' + Math.random().toString(36).slice(2, 8), nombre: '', pv: productosPlanos()[0]?.value || '', modo: 'm2', area: 0, mlLargo: 0, mlAncho: 0, rematesMl: 0 };
+  }
+
+  function renderSecciones() {
+    const cont = $('seccionesLista');
+    if (!cont) return;
+    const planos = productosPlanos();
+    cont.innerHTML = S.secciones.map((s, idx) => `
+      <div class="seccion-row" data-idx="${idx}">
+        <div class="seccion-row-head"><strong>Sección ${idx + 1}</strong><button type="button" class="link sec-eliminar" data-idx="${idx}">eliminar ✕</button></div>
+        <div class="row2">
+          <div><label>Nombre</label><input type="text" class="sec-nombre" data-idx="${idx}" value="${esc(s.nombre)}" placeholder="Agua 1, Pantalla norte…"></div>
+          <div><label>Sistema / producto</label><select class="sec-producto" data-idx="${idx}">${planos.map((pp) => `<option value="${esc(pp.value)}" ${pp.value === s.pv ? 'selected' : ''} ${pp.sinPrecio ? 'disabled' : ''}>${esc(pp.label)}</option>`).join('')}</select></div>
+        </div>
+        <div class="toggle sec-modo" data-idx="${idx}">
+          <button type="button" data-v="m2" class="${s.modo !== 'ml' ? 'active' : ''}">m²</button>
+          <button type="button" data-v="ml" class="${s.modo === 'ml' ? 'active' : ''}">ml</button>
+        </div>
+        ${s.modo === 'ml' ? `
+          <div class="row2">
+            <div><label>Largo (ml)</label><input type="number" class="sec-largo" data-idx="${idx}" value="${s.mlLargo || 0}" min="0" step="0.1"></div>
+            <div><label>Ancho de cobertura (m)</label><input type="number" class="sec-ancho" data-idx="${idx}" value="${s.mlAncho || 0}" min="0" step="0.01"></div>
+          </div>` : `<label>Área (m²)</label><input type="number" class="sec-area" data-idx="${idx}" value="${s.area || 0}" min="0" step="1">`}
+        <label>Remates/flashings de esta sección (ml)</label><input type="number" class="sec-remates" data-idx="${idx}" value="${s.rematesMl || 0}" min="0" step="1">
+      </div>`).join('') + '<button type="button" class="btn" id="agregarSeccion">+ Agregar sección</button>';
+  }
+
+  function areaSeccion(s) {
+    return s.modo === 'ml' ? (parseFloat(s.mlLargo) || 0) * (parseFloat(s.mlAncho) || 0) : parseFloat(s.area) || 0;
   }
 
   // Conserva lo escrito en el formulario cuando se refrescan los precios.
@@ -227,25 +320,54 @@ const Cotizador = (() => {
     };
     orden.forEach(set);
     Object.keys(s).filter((k) => !orden.includes(k)).forEach(set);
-    ['modPrecios', 'incluirMontaje', 'incluirFlete', 'incluirImagen', 'incluirMargen'].forEach((id) => $(id) && toggleBox(id));
+    ['modPrecios', 'incluirMontaje', 'incluirFlete', 'incluirImagen', 'incluirPlano', 'incluirMargen'].forEach((id) => $(id) && toggleBox(id));
     $('areaDirectaBox').hidden = S.modo !== 'm2';
     $('areaMlBox').hidden = S.modo !== 'ml';
     marcar('medidaToggle', S.modo);
     marcar('pagoToggle', S.pago);
+    toggleSecciones();
   }
 
-  const boxDe = { modPrecios: 'preciosManualBox', incluirMontaje: 'montajeBox', incluirFlete: 'fleteBox', incluirImagen: 'imagenUploadBox', incluirMargen: 'margenBox' };
+  const boxDe = { modPrecios: 'preciosManualBox', incluirMontaje: 'montajeBox', incluirFlete: 'fleteBox', incluirImagen: 'imagenUploadBox', incluirPlano: 'planoUploadBox', incluirMargen: 'margenBox' };
   const toggleBox = (id) => { if ($(boxDe[id])) $(boxDe[id]).hidden = !chk(id); };
   const marcar = (toggleId, v) => $(toggleId).querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.v === v));
+
+  function toggleSecciones() {
+    if (!$('incluirSecciones')) return;
+    const on = chk('incluirSecciones');
+    $('seccionUnicaBox').hidden = on;
+    $('seccionesBox').hidden = !on;
+    $('remateUnicoBox').hidden = on;
+    $('remateSeccionesHint').hidden = !on;
+    if (on && S.secciones.length === 0) S.secciones.push(nuevaSeccion());
+    if (on) renderSecciones();
+  }
 
   function bind() {
     const grid = root.querySelector('.cot-grid'); // se recrea en cada mount: evita listeners duplicados
     grid.addEventListener('input', (e) => {
-      if (e.target.id === 'comentarios' || e.target.type === 'file') return;
+      const t = e.target;
+      if (t.id === 'comentarios' || t.type === 'file') return;
+      const idx = t.dataset.idx;
+      if (idx !== undefined && S.secciones[idx]) {
+        const s = S.secciones[idx];
+        if (t.classList.contains('sec-nombre')) s.nombre = t.value;
+        else if (t.classList.contains('sec-area')) s.area = t.value;
+        else if (t.classList.contains('sec-largo')) s.mlLargo = t.value;
+        else if (t.classList.contains('sec-ancho')) s.mlAncho = t.value;
+        else if (t.classList.contains('sec-remates')) s.rematesMl = t.value;
+      }
       calcular();
     });
     grid.addEventListener('change', (e) => {
       const id = e.target.id;
+      if (id === 'incluirSecciones') { toggleSecciones(); calcular(); return; }
+      if (e.target.classList.contains('sec-producto')) {
+        const idx = e.target.dataset.idx;
+        if (S.secciones[idx]) S.secciones[idx].pv = e.target.value;
+        calcular();
+        return;
+      }
       if (id === 'categoria') { poblarProductos(); onProducto(); }
       else if (id === 'producto') onProducto();
       else if (id === 'tipoObra') aplicarComentarioAuto();
@@ -254,6 +376,7 @@ const Cotizador = (() => {
         if (id === 'modPrecios' && chk(id)) precargarManuales();
         if (id === 'incluirMontaje' && chk(id)) precargarMontaje();
         if (id === 'incluirImagen' && !chk(id)) S.imagen = null;
+        if (id === 'incluirPlano' && !chk(id)) { S.plano = null; actualizarPlanoHint(); }
         if (id === 'incluirMargen' && !chk(id)) setVista('cliente');
       } else if (id === 'imagenInput') {
         const f = e.target.files[0];
@@ -262,10 +385,37 @@ const Cotizador = (() => {
         r.onload = (ev) => { S.imagen = ev.target.result; calcular(); };
         r.readAsDataURL(f);
         return;
+      } else if (id === 'planoInput') {
+        const f = e.target.files[0];
+        if (!f) return;
+        const r = new FileReader();
+        r.onload = (ev) => { S.plano = { nombre: f.name, tipo: f.type, data: ev.target.result }; actualizarPlanoHint(); };
+        r.readAsDataURL(f);
+        return;
       }
       calcular();
     });
     grid.addEventListener('click', (e) => {
+      const secModoBtn = e.target.closest('.sec-modo button');
+      if (secModoBtn) {
+        const idx = secModoBtn.closest('.sec-modo').dataset.idx;
+        if (S.secciones[idx]) S.secciones[idx].modo = secModoBtn.dataset.v;
+        renderSecciones();
+        calcular();
+        return;
+      }
+      if (e.target.classList.contains('sec-eliminar')) {
+        S.secciones.splice(+e.target.dataset.idx, 1);
+        renderSecciones();
+        calcular();
+        return;
+      }
+      if (e.target.id === 'agregarSeccion') {
+        S.secciones.push(nuevaSeccion());
+        renderSecciones();
+        calcular();
+        return;
+      }
       const tg = e.target.closest('.toggle button');
       if (tg) {
         const box = tg.parentElement.id;
@@ -283,11 +433,19 @@ const Cotizador = (() => {
       const vt = e.target.closest('#viewToggle button');
       if (vt) return setVista(vt.dataset.v);
       if (e.target.id === 'restaurarComentario') { aplicarComentarioAuto(true); return; }
+      if (e.target.id === 'copiarDireccion') { $('direccionEntrega').value = val('direccionFiscal'); calcular(); return; }
       const act = e.target.closest('[data-act]')?.dataset.act;
       if (act === 'pdf-cliente') exportarPdf('cliente');
       if (act === 'pdf-interna') exportarPdf('interna');
       if (act === 'xlsx') exportarExcel();
+      if (act === 'guardar-oferta') guardarOferta();
+      if (act === 'ofertas-guardadas') abrirPanelOfertas();
     });
+  }
+
+  function actualizarPlanoHint() {
+    const el = $('planoActual');
+    if (el) el.textContent = S.plano ? `Adjunto: ${S.plano.nombre}` : 'Sin archivo adjunto todavía.';
   }
 
   function onProducto() {
@@ -360,12 +518,29 @@ const Cotizador = (() => {
     const categoria = val('categoria');
     const modPrecios = chk('modPrecios');
     const margen = puedeInterna && chk('incluirMargen');
+    const multi = chk('incluirSecciones') && S.secciones.length > 0;
+    const seccionesEntrada = multi ? S.secciones.map((s) => {
+      const prod = productoPorValor(s.pv);
+      return {
+        nombre: (s.nombre ? s.nombre + ' — ' : '') + (prod ? prod.n : ''),
+        producto: prod,
+        area: areaSeccion(s),
+        desperdicioPct: val('desperdicio'),
+        tornillosPorM2: val('tornillos'),
+        rematesMl: s.rematesMl,
+      };
+    }) : null;
     const entradas = {
-      producto: p, pago: S.pago, area: area(),
-      desperdicioPct: val('desperdicio'), tornillosPorM2: val('tornillos'), rematesMl: val('remates'),
+      producto: multi ? null : p, pago: S.pago, area: multi ? 0 : area(),
+      desperdicioPct: val('desperdicio'), tornillosPorM2: val('tornillos'), rematesMl: multi ? 0 : val('remates'),
+      secciones: seccionesEntrada,
       ivaPct: val('iva'), tasaBcv: val('tasabcv'),
       preciosManuales: modPrecios ? { material: val('precioMaterialManual'), tornillo: val('precioTornilloManual'), remate: val('precioRemateManual') } : null,
-      montaje: { incluir: chk('incluirMontaje'), m2: val('precioMontajeM2'), ml: val('precioMontajeMl') },
+      montaje: {
+        incluir: chk('incluirMontaje'), m2: val('precioMontajeM2'), ml: val('precioMontajeMl'),
+        diasGrua: val('montajeDiasGrua'), precioGruaDia: val('montajePrecioGruaDia'),
+        andamios: val('montajeAndamios'), supervisor: val('montajeSupervisor'),
+      },
       flete: { incluir: chk('incluirFlete'), monto: val('precioFlete') },
       margen: margen ? { costoMaterial: val('costoMaterial'), costoTornillo: val('costoTornillo'), costoRemate: val('costoRemate'), costoOtros: val('costoOtros') } : null,
     };
@@ -378,14 +553,18 @@ const Cotizador = (() => {
     const hoy = new Date().toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' });
     const nombreTornillo = params.tornillo_nombre || 'Tornillo autotaladrante — fijación estándar';
     const nombreRemate = params.remate_nombre || 'Flashing/remate perimetral';
-    const montajeDef = !!cat.montaje[p.n];
+    const montajeDef = !multi && !!cat.montaje[p.n];
 
+    const contacto = [val('contactoNombre'), val('contactoTelefono'), val('contactoCorreo')].filter((x) => x && x.trim()).join(' · ');
     ultima = {
       ...r,
       docNum: `OFERTA N° ${val('numOferta') || '—'}`, fecha: hoy,
       cliente: val('cliente') || '—', proyecto: val('proyecto') || '—', ubicacion: val('ubicacion') || '—',
+      clienteRif: val('clienteRif') || '', direccionFiscal: val('direccionFiscal') || '', direccionEntrega: val('direccionEntrega') || '',
+      contactoNombre: val('contactoNombre') || '', contactoTelefono: val('contactoTelefono') || '', contactoCorreo: val('contactoCorreo') || '', contacto,
       pago: pagoTxt, tipoObra: val('tipoObra') || '—', comentarios: val('comentarios').trim(),
-      productoNombre: p.n, catLabel: categoria, ancho: p.ancho,
+      productoNombre: multi ? `Varias secciones (${r.secciones.length})` : p.n,
+      catLabel: multi ? 'Secciones' : categoria, ancho: multi ? null : p.ancho,
     };
 
     const emp = S.empresa;
@@ -394,26 +573,61 @@ const Cotizador = (() => {
     $('docNum').textContent = ultima.docNum;
     $('docFecha').textContent = 'Fecha: ' + hoy;
     $('docInfo').innerHTML = [
-      ['Cliente', ultima.cliente], ['Ubicación', ultima.ubicacion], ['Proyecto', ultima.proyecto],
-      ['Forma de pago', pagoTxt], ['Tipo de obra', ultima.tipoObra],
+      ['Cliente', ultima.cliente], ['RIF', ultima.clienteRif || '—'], ['Ubicación', ultima.ubicacion], ['Proyecto', ultima.proyecto],
+      ['Dirección fiscal', ultima.direccionFiscal || '—'], ['Dirección de entrega', ultima.direccionEntrega || '—'],
+      ['Forma de pago', pagoTxt], ['Tipo de obra', ultima.tipoObra], ['Contacto', ultima.contacto || '—'],
     ].map(([l, v]) => `<div><span class="l">${l}:</span>${esc(v)}</div>`).join('');
 
     const sub = (t) => `<div class="sub-line">${esc(t)}</div>`;
-    const filas = [
-      `<tr><td><strong>${esc(p.n)}</strong>${sub(categoria + (p.ancho ? ' · ancho útil ' + p.ancho + ' m' : ''))}</td>
-        <td>${r.area.toLocaleString('es-VE')} m² + ${r.desperdicioPct}% desperdicio<span class="badge-est">${modPrecios ? 'precio modificado' : 'calculado'}</span></td>
-        <td class="r">${r.areaConDesp.toFixed(2)} m²</td><td class="r">US$ ${fmt(r.precioM2)}/m²</td><td class="r">US$ ${fmt(r.materialImporte)}</td></tr>`,
-      `<tr><td><strong>Fijaciones</strong>${sub(nombreTornillo)}</td>
-        <td>${r.tornillosPorM2} unid./m²<span class="badge-est">estimado</span></td>
-        <td class="r">${r.tornillosCant.toLocaleString('es-VE')} unid.</td><td class="r">US$ ${fmt(r.tornilloPrecio)}</td><td class="r">US$ ${fmt(r.tornillosImporte)}</td></tr>`,
-      `<tr><td><strong>Remates / Flashings</strong>${sub(nombreRemate + ' — se vende por pieza de 2,40 m')}</td>
-        <td>Perímetro estimado: ${r.rematesMl.toLocaleString('es-VE')} ml → ${r.piezasRemate} pieza(s) de 2,40 m<span class="badge-est">estimado</span></td>
-        <td class="r">${r.rematesMlFacturable.toLocaleString('es-VE')} ml</td><td class="r">US$ ${fmt(r.rematePrecio)}</td><td class="r">US$ ${fmt(r.rematesImporte)}</td></tr>`,
-    ];
+    const filas = [];
+    if (r.precioFaltante) {
+      filas.push('<tr class="seccion-head-row" style="background:var(--red) !important"><td colspan="5"><strong>⚠ Un producto no tiene precio de lista confirmado — no se puede exportar ni entregar esta oferta hasta corregirlo.</strong></td></tr>');
+    }
+    if (multi) {
+      r.secciones.forEach((s) => {
+        const subtotalSeccion = s.materialImporte + s.tornillosImporte + s.rematesImporte;
+        filas.push(`<tr class="seccion-head-row"><td colspan="5"><strong>— ${esc(s.nombre)} —</strong></td></tr>`);
+        filas.push(`<tr><td>Material${sub('')}</td>
+          <td>${s.area.toLocaleString('es-VE')} m² + ${s.desperdicioPct}% desperdicio<span class="badge-est">calculado</span></td>
+          <td class="r">${s.areaConDesp.toFixed(2)} m²</td><td class="r">US$ ${fmt(s.precioM2)}/m²</td><td class="r">US$ ${fmt(s.materialImporte)}</td></tr>`);
+        filas.push(`<tr><td>Fijaciones${sub(nombreTornillo)}</td>
+          <td>${s.tornillosPorM2} unid./m²<span class="badge-est">estimado</span></td>
+          <td class="r">${s.tornillosCant.toLocaleString('es-VE')} unid.</td><td class="r">US$ ${fmt(s.tornilloPrecio)}</td><td class="r">US$ ${fmt(s.tornillosImporte)}</td></tr>`);
+        filas.push(`<tr><td>Remates / Flashings${sub(nombreRemate)}</td>
+          <td>${s.rematesMl.toLocaleString('es-VE')} ml → ${s.piezasRemate} pieza(s)<span class="badge-est">estimado</span></td>
+          <td class="r">${s.rematesMlFacturable.toLocaleString('es-VE')} ml</td><td class="r">US$ ${fmt(s.rematePrecio)}</td><td class="r">US$ ${fmt(s.rematesImporte)}</td></tr>`);
+        filas.push(`<tr class="seccion-subtotal-row"><td colspan="4">Subtotal de esta sección (sin montaje ni flete, prorrateables)</td><td class="r">US$ ${fmt(subtotalSeccion)}</td></tr>`);
+      });
+    } else {
+      filas.push(
+        `<tr><td><strong>${esc(p.n)}</strong>${sub(categoria + (p.ancho ? ' · ancho útil ' + p.ancho + ' m' : ''))}</td>
+          <td>${r.area.toLocaleString('es-VE')} m² + ${r.desperdicioPct}% desperdicio<span class="badge-est">${modPrecios ? 'precio modificado' : 'calculado'}</span></td>
+          <td class="r">${r.areaConDesp.toFixed(2)} m²</td><td class="r">US$ ${fmt(r.precioM2)}/m²</td><td class="r">US$ ${fmt(r.materialImporte)}</td></tr>`,
+        `<tr><td><strong>Fijaciones</strong>${sub(nombreTornillo)}</td>
+          <td>${r.tornillosPorM2} unid./m²<span class="badge-est">estimado</span></td>
+          <td class="r">${r.tornillosCant.toLocaleString('es-VE')} unid.</td><td class="r">US$ ${fmt(r.tornilloPrecio)}</td><td class="r">US$ ${fmt(r.tornillosImporte)}</td></tr>`,
+        `<tr><td><strong>Remates / Flashings</strong>${sub(nombreRemate + ' — se vende por pieza de 2,40 m')}</td>
+          <td>Perímetro estimado: ${r.rematesMl.toLocaleString('es-VE')} ml → ${r.piezasRemate} pieza(s) de 2,40 m<span class="badge-est">estimado</span></td>
+          <td class="r">${r.rematesMlFacturable.toLocaleString('es-VE')} ml</td><td class="r">US$ ${fmt(r.rematePrecio)}</td><td class="r">US$ ${fmt(r.rematesImporte)}</td></tr>`
+      );
+    }
     if (r.incluirMontaje) {
       filas.push(`<tr><td><strong>Montaje</strong>${sub('Instalación de techo/pantalla y remates — cuadrillas propias')}</td>
         <td>${r.areaConDesp.toFixed(2)} m² + ${r.rematesMlFacturable.toLocaleString('es-VE')} ml<span class="badge-est">${montajeDef ? 'valor de lista' : 'ingresado manualmente'}</span></td>
         <td class="r">—</td><td class="r">US$ ${fmt(r.precioMontajeM2)}/m² + US$ ${fmt(r.precioMontajeMl)}/ml</td><td class="r">US$ ${fmt(r.montajeImporte)}</td></tr>`);
+      if (r.gruaImporte > 0) {
+        filas.push(`<tr><td><strong>Grúa de montaje</strong>${sub('Izaje — p. ej. standing seam')}</td>
+          <td>${r.diasGrua} día(s)<span class="badge-est">ingresado manualmente</span></td>
+          <td class="r">${r.diasGrua}</td><td class="r">US$ ${fmt(r.precioGruaDia)}/día</td><td class="r">US$ ${fmt(r.gruaImporte)}</td></tr>`);
+      }
+      if (r.andamios > 0) {
+        filas.push(`<tr><td><strong>Andamios especiales</strong>${sub('Montaje de esta obra')}</td>
+          <td>Estimado caso a caso<span class="badge-est">ingresado manualmente</span></td><td class="r">—</td><td class="r">—</td><td class="r">US$ ${fmt(r.andamios)}</td></tr>`);
+      }
+      if (r.supervisor > 0) {
+        filas.push(`<tr><td><strong>Supervisor fijo en obra</strong>${sub('Montaje de esta obra')}</td>
+          <td>Estimado caso a caso<span class="badge-est">ingresado manualmente</span></td><td class="r">—</td><td class="r">—</td><td class="r">US$ ${fmt(r.supervisor)}</td></tr>`);
+      }
     }
     if (r.incluirFlete) {
       filas.push(`<tr><td><strong>Flete</strong>${sub('Transporte estimado para este despacho')}</td>
@@ -471,6 +685,10 @@ const Cotizador = (() => {
   }
 
   async function exportarPdf(vista) {
+    if (ultima.precioFaltante) {
+      toast('Hay un producto sin precio de lista confirmado — no se puede generar la oferta todavía.', 'error');
+      return;
+    }
     if (vista === 'interna' && !chk('incluirMargen')) {
       toast('Primero activa "Habilitar vista interna" e ingresa los costos de la obra.', 'error');
       return;
@@ -515,9 +733,11 @@ const Cotizador = (() => {
     rows.push(xRow([xCell('Grupo Centrolit — Propuesta Técnico-Comercial', 'sTitle')]));
     rows.push(xRow([xCell(d.docNum, 'sBold')]));
     rows.push(xRow([]));
-    rows.push(xRow([xCell('Cliente:', 'sLabel'), xCell(d.cliente), xCell('Ubicación:', 'sLabel'), xCell(d.ubicacion)]));
-    rows.push(xRow([xCell('Proyecto:', 'sLabel'), xCell(d.proyecto), xCell('Forma de pago:', 'sLabel'), xCell(d.pago)]));
-    rows.push(xRow([xCell('Tipo de obra:', 'sLabel'), xCell(d.tipoObra), xCell('Fecha:', 'sLabel'), xCell(d.fecha)]));
+    rows.push(xRow([xCell('Cliente:', 'sLabel'), xCell(d.cliente), xCell('RIF:', 'sLabel'), xCell(d.clienteRif)]));
+    rows.push(xRow([xCell('Ubicación:', 'sLabel'), xCell(d.ubicacion), xCell('Proyecto:', 'sLabel'), xCell(d.proyecto)]));
+    rows.push(xRow([xCell('Dirección fiscal:', 'sLabel'), xCell(d.direccionFiscal), xCell('Dirección de entrega:', 'sLabel'), xCell(d.direccionEntrega)]));
+    rows.push(xRow([xCell('Forma de pago:', 'sLabel'), xCell(d.pago), xCell('Tipo de obra:', 'sLabel'), xCell(d.tipoObra)]));
+    rows.push(xRow([xCell('Contacto:', 'sLabel'), xCell(d.contacto), xCell('Fecha:', 'sLabel'), xCell(d.fecha)]));
     rows.push(xRow([]));
     if (d.comentarios) {
       rows.push(xRow([xCell('Comentarios / alcance:', 'sBold')]));
@@ -525,23 +745,45 @@ const Cotizador = (() => {
       rows.push(xRow([]));
     }
     rows.push(xRow(['Concepto', 'Detalle', 'Cantidad', 'Precio unit. (US$)', 'Importe (US$)'].map((h) => xCell(h, 'sHeader'))));
-    rows.push(xRow([
-      xCell(d.productoNombre), xCell(`${d.catLabel}${d.ancho ? ' · ancho útil ' + d.ancho + ' m' : ''}`),
-      xCell(`${d.areaConDesp.toFixed(2)} m²`), xCell(d.precioM2, 'sMoney', 'Number'), xCell(d.materialImporte, 'sMoney', 'Number'),
-    ]));
-    rows.push(xRow([
-      xCell('Fijaciones'), xCell('Tornillo autotaladrante — fijación estándar'),
-      xCell(`${d.tornillosCant} unid.`), xCell(d.tornilloPrecio, 'sMoney', 'Number'), xCell(d.tornillosImporte, 'sMoney', 'Number'),
-    ]));
-    rows.push(xRow([
-      xCell('Remates / Flashings'), xCell(`${d.rematesMl} ml → ${d.piezasRemate} pieza(s) de 2,40 m`),
-      xCell(`${d.rematesMlFacturable} ml`), xCell(d.rematePrecio, 'sMoney', 'Number'), xCell(d.rematesImporte, 'sMoney', 'Number'),
-    ]));
+    if (d.secciones) {
+      d.secciones.forEach((s) => {
+        rows.push(xRow([xCell('— ' + s.nombre + ' —', 'sBold')]));
+        rows.push(xRow([xCell('Material'), xCell(''), xCell(`${s.areaConDesp.toFixed(2)} m²`), xCell(s.precioM2, 'sMoney', 'Number'), xCell(s.materialImporte, 'sMoney', 'Number')]));
+        rows.push(xRow([xCell('Fijaciones'), xCell(''), xCell(`${s.tornillosCant} unid.`), xCell(s.tornilloPrecio, 'sMoney', 'Number'), xCell(s.tornillosImporte, 'sMoney', 'Number')]));
+        rows.push(xRow([xCell('Remates / Flashings'), xCell(''), xCell(`${s.rematesMlFacturable} ml`), xCell(s.rematePrecio, 'sMoney', 'Number'), xCell(s.rematesImporte, 'sMoney', 'Number')]));
+        rows.push(xRow([xCell(''), xCell(''), xCell(''), xCell('Subtotal de esta sección', 'sLabel'), xCell(s.materialImporte + s.tornillosImporte + s.rematesImporte, 'sMoney', 'Number')]));
+      });
+    } else {
+      rows.push(xRow([
+        xCell(d.productoNombre), xCell(`${d.catLabel}${d.ancho ? ' · ancho útil ' + d.ancho + ' m' : ''}`),
+        xCell(`${d.areaConDesp.toFixed(2)} m²`), xCell(d.precioM2, 'sMoney', 'Number'), xCell(d.materialImporte, 'sMoney', 'Number'),
+      ]));
+      rows.push(xRow([
+        xCell('Fijaciones'), xCell('Tornillo autotaladrante — fijación estándar'),
+        xCell(`${d.tornillosCant} unid.`), xCell(d.tornilloPrecio, 'sMoney', 'Number'), xCell(d.tornillosImporte, 'sMoney', 'Number'),
+      ]));
+      rows.push(xRow([
+        xCell('Remates / Flashings'), xCell(`${d.rematesMl} ml → ${d.piezasRemate} pieza(s) de 2,40 m`),
+        xCell(`${d.rematesMlFacturable} ml`), xCell(d.rematePrecio, 'sMoney', 'Number'), xCell(d.rematesImporte, 'sMoney', 'Number'),
+      ]));
+    }
     if (d.incluirMontaje) {
       rows.push(xRow([
         xCell('Montaje'), xCell('Instalación de techo/pantalla y remates — cuadrillas propias'),
         xCell(`${d.areaConDesp.toFixed(2)} m² + ${d.rematesMlFacturable} ml`), xCell(''), xCell(d.montajeImporte, 'sMoney', 'Number'),
       ]));
+      if (d.gruaImporte > 0) {
+        rows.push(xRow([
+          xCell('Grúa de montaje'), xCell('Izaje — p. ej. standing seam'),
+          xCell(`${d.diasGrua} día(s)`), xCell(d.precioGruaDia, 'sMoney', 'Number'), xCell(d.gruaImporte, 'sMoney', 'Number'),
+        ]));
+      }
+      if (d.andamios > 0) {
+        rows.push(xRow([xCell('Andamios especiales'), xCell('Montaje de esta obra'), xCell('Estimado caso a caso'), xCell(''), xCell(d.andamios, 'sMoney', 'Number')]));
+      }
+      if (d.supervisor > 0) {
+        rows.push(xRow([xCell('Supervisor fijo en obra'), xCell('Montaje de esta obra'), xCell('Estimado caso a caso'), xCell(''), xCell(d.supervisor, 'sMoney', 'Number')]));
+      }
     }
     if (d.incluirFlete) {
       rows.push(xRow([
@@ -623,6 +865,10 @@ const Cotizador = (() => {
 
   async function exportarExcel() {
     calcular();
+    if (ultima.precioFaltante) {
+      toast('Hay un producto sin precio de lista confirmado — no se puede generar la oferta todavía.', 'error');
+      return;
+    }
     if (window.centrolit) {
       // Escritorio: .xlsx real vía Electron+exceljs (diálogo de guardar nativo).
       try {
@@ -641,6 +887,121 @@ const Cotizador = (() => {
     } catch (e) {
       toast('No se pudo generar el Excel: ' + e.message, 'error');
     }
+  }
+
+  // ---------- Guardado local de ofertas (reabrir/editar más tarde — puntos 6 y 8 del feedback) ----------
+  // Decisión 2026-10-15: local por ahora (no Drive/Sheet). Escritorio: fichero JSON por oferta en
+  // userData/ofertas. Web: localStorage (sin backend); limitado por la cuota del navegador (~5-10 MB).
+  const LS_OFERTAS = 'centrolit.ofertasGuardadas';
+  function lsLeerOfertas() {
+    try { return JSON.parse(localStorage.getItem(LS_OFERTAS) || '[]'); } catch { return []; }
+  }
+  function lsEscribirOfertas(arr) {
+    try { localStorage.setItem(LS_OFERTAS, JSON.stringify(arr)); } catch { throw new Error('Memoria local del navegador llena o no disponible.'); }
+  }
+  async function ofertasListarImpl() {
+    if (window.centrolit) return window.centrolit.ofertasListar();
+    return lsLeerOfertas().map(({ id, numOferta, cliente, proyecto, guardadoEn }) => ({ id, numOferta, cliente, proyecto, guardadoEn }));
+  }
+  async function ofertasCargarImpl(id) {
+    if (window.centrolit) return window.centrolit.ofertasCargar(id);
+    const r = lsLeerOfertas().find((x) => x.id === id);
+    if (!r) throw new Error('Esa oferta ya no existe.');
+    return r;
+  }
+  async function ofertasGuardarImpl(record) {
+    if (window.centrolit) return window.centrolit.ofertasGuardar(record);
+    const arr = lsLeerOfertas();
+    const id = record.id || `o_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const full = { ...record, id, guardadoEn: new Date().toISOString() };
+    const i = arr.findIndex((x) => x.id === id);
+    if (i >= 0) arr[i] = full; else arr.push(full);
+    lsEscribirOfertas(arr);
+    return { id, guardadoEn: full.guardadoEn };
+  }
+  async function ofertasEliminarImpl(id) {
+    if (window.centrolit) return window.centrolit.ofertasEliminar(id);
+    lsEscribirOfertas(lsLeerOfertas().filter((x) => x.id !== id));
+    return true;
+  }
+
+  async function guardarOferta() {
+    try {
+      const record = {
+        id: S.ofertaId || undefined,
+        numOferta: val('numOferta'), cliente: val('cliente') || '(sin nombre)', proyecto: val('proyecto') || '',
+        campos: snapshot(), modo: S.modo, pago: S.pago, imagen: S.imagen, plano: S.plano, secciones: S.secciones,
+      };
+      const r = await ofertasGuardarImpl(record);
+      S.ofertaId = r.id;
+      toast('Oferta guardada en este equipo.');
+    } catch (e) {
+      toast('No se pudo guardar la oferta: ' + e.message, 'error');
+    }
+  }
+
+  async function cargarOfertaEnFormulario(id) {
+    try {
+      const r = await ofertasCargarImpl(id);
+      S.modo = r.modo || 'm2';
+      S.pago = r.pago || 'efectivo';
+      S.secciones = r.secciones || [];
+      restaurar(r.campos || {});
+      S.imagen = r.imagen || null;
+      S.plano = r.plano || null;
+      S.ofertaId = r.id;
+      actualizarPlanoHint();
+      calcular();
+      toast('Oferta cargada — puedes seguir editándola.');
+    } catch (e) {
+      toast('No se pudo abrir la oferta: ' + e.message, 'error');
+    }
+  }
+
+  async function eliminarOfertaGuardada(id) {
+    try {
+      await ofertasEliminarImpl(id);
+      if (S.ofertaId === id) S.ofertaId = null;
+      toast('Oferta eliminada.');
+    } catch (e) {
+      toast('No se pudo eliminar: ' + e.message, 'error');
+    }
+  }
+
+  function cerrarPanelOfertas() {
+    document.getElementById('ofertasOverlay')?.remove();
+  }
+
+  async function abrirPanelOfertas() {
+    let ofertas;
+    try {
+      ofertas = await ofertasListarImpl();
+    } catch (e) {
+      toast('No se pudieron listar las ofertas guardadas: ' + e.message, 'error');
+      return;
+    }
+    cerrarPanelOfertas();
+    const overlay = document.createElement('div');
+    overlay.id = 'ofertasOverlay';
+    overlay.className = 'ofertas-overlay';
+    overlay.innerHTML = `<div class="ofertas-panel">
+      <div class="ofertas-panel-head"><h3>Ofertas guardadas en este equipo</h3><button type="button" class="link" id="ofertasCerrar">cerrar ✕</button></div>
+      ${ofertas.length ? `<div class="ofertas-lista">${ofertas.map((o) => `
+        <div class="ofertas-fila">
+          <div><strong>${esc(o.cliente || '(sin cliente)')}</strong><div class="sub-line">${esc(o.numOferta || '')}${o.proyecto ? ' · ' + esc(o.proyecto) : ''} · ${esc(fmtFechaHora(o.guardadoEn))}</div></div>
+          <div><button type="button" class="btn" data-abrir="${esc(o.id)}">Abrir</button> <button type="button" class="btn" data-eliminar="${esc(o.id)}">Eliminar</button></div>
+        </div>`).join('')}</div>` : '<div class="hint">Todavía no hay ninguna oferta guardada en este equipo.</div>'}
+    </div>`;
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay || e.target.id === 'ofertasCerrar') { cerrarPanelOfertas(); return; }
+      const abrirId = e.target.dataset.abrir;
+      if (abrirId) { cerrarPanelOfertas(); cargarOfertaEnFormulario(abrirId); return; }
+      const delId = e.target.dataset.eliminar;
+      if (delId && confirm('¿Eliminar esta oferta guardada? No se puede deshacer.')) {
+        eliminarOfertaGuardada(delId).then(abrirPanelOfertas);
+      }
+    });
+    document.body.appendChild(overlay);
   }
 
   return { mount };

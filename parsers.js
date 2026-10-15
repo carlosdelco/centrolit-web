@@ -59,8 +59,10 @@ function parsePrecios({ productos, parametros, textos, tiposObra }) {
       categoria: String(f.categoria).trim(),
       producto: String(f.producto).trim(),
       ancho_util: num(f.ancho_util),
-      precio_efectivo: num(f.precio_efectivo) ?? 0,
-      precio_bcv: num(f.precio_bcv) ?? num(f.precio_efectivo) ?? 0,
+      // null (no 0) si la celda viene vacía: un precio en US$ 0 se vería como "gratis" en una
+      // oferta real. El motor y la UI deben tratar null como "precio pendiente de confirmar".
+      precio_efectivo: num(f.precio_efectivo),
+      precio_bcv: num(f.precio_bcv) ?? num(f.precio_efectivo),
       montaje_m2: num(f.montaje_m2),
       montaje_ml: num(f.montaje_ml),
     }));

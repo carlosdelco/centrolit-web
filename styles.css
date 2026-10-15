@@ -49,6 +49,14 @@ button{font-family:inherit;}
 .toast.show{opacity:1;transform:translate(-50%,0);}
 .toast.error{background:var(--red);}
 
+/* ---------- Panel de ofertas guardadas ---------- */
+.ofertas-overlay{position:fixed;inset:0;background:rgba(27,42,58,.55);display:flex;align-items:center;justify-content:center;z-index:60;padding:20px;}
+.ofertas-panel{background:var(--surface);border-radius:10px;padding:18px 20px;width:min(560px,100%);max-height:80vh;overflow:auto;}
+.ofertas-panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.ofertas-lista{display:flex;flex-direction:column;gap:8px;}
+.ofertas-fila{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);}
+.ofertas-fila .btn{padding:6px 11px;font-size:12px;}
+
 .empty-state{max-width:520px;margin:60px auto;text-align:center;background:var(--surface);padding:32px;border-radius:12px;border:1px solid var(--border);}
 .empty-state p{color:var(--muted);line-height:1.6;}
 
@@ -69,6 +77,13 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--green);outline-o
 .chk{display:flex;align-items:flex-start;gap:8px;font-size:13px;font-weight:bold;color:var(--text);text-transform:none;letter-spacing:0;margin:13px 0 0;cursor:pointer;}
 .chk input{width:auto;margin-top:2px;}
 .manual-box{margin-top:10px;padding:12px;background:var(--amber-light);border-radius:8px;}
+.seccion-row{margin-top:10px;padding:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;}
+.seccion-row-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+.seccion-row .toggle{max-width:160px;}
+#agregarSeccion{margin-top:10px;}
+tr.seccion-head-row td{background:var(--navy-mid) !important;color:#fff;font-size:11.5px;padding:6px 12px;}
+tr.seccion-subtotal-row td{background:var(--green-light) !important;color:var(--green-dark);font-weight:bold;text-align:right;}
+tr.seccion-subtotal-row td:first-child{text-align:left;}
 .margin-box{margin-top:10px;padding:12px;background:#EEF3F0;border-radius:8px;}
 .link{color:var(--green-dark);font-weight:bold;text-decoration:none;cursor:pointer;background:none;border:0;font-size:11px;padding:0;}
 .btnrow{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;}
