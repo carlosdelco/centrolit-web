@@ -1,0 +1,17 @@
+{
+  "_aviso": "DATOS DE DEMOSTRACIÓN — inventados, solo para ver el dashboard en modo demo.",
+  "historial": {
+    "direccion": [
+      { "semana": "2026-09-07", "valores": { "ebitda": 11.5, "caja": 82000, "crecimiento": 3.2, "riesgos": 2 }, "nota": "" },
+      { "semana": "2026-09-14", "valores": { "ebitda": 12.1, "caja": 85500, "crecimiento": 3.8, "riesgos": 1 }, "nota": "" }
+    ],
+    "comercial": [
+      { "semana": "2026-09-07", "valores": { "ventas": 61000, "margen": 33, "conversion": 22, "margenLogrado": 31 }, "nota": "" },
+      { "semana": "2026-09-14", "valores": { "ventas": 74500, "margen": 36, "conversion": 25, "margenLogrado": 35 }, "nota": "Semana con dos obras grandes" }
+    ],
+    "obras": [
+      { "semana": "2026-09-07", "valores": { "aTiempo": 80, "incidentes": 0 }, "nota": "" },
+      { "semana": "2026-09-14", "valores": { "aTiempo": 85, "incidentes": 2 }, "nota": "Dos incidentes menores" }
+    ]
+  }
+}

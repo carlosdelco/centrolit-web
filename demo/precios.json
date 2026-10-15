@@ -1,0 +1,269 @@
+{
+  "productos": [
+    {
+      "categoria": "Standing Seam",
+      "producto": "SSA 0,45 mm (sencillo)",
+      "ancho_util": "",
+      "precio_efectivo": 15.3,
+      "precio_bcv": 17.85,
+      "montaje_m2": "",
+      "montaje_ml": ""
+    },
+    {
+      "categoria": "Standing Seam",
+      "producto": "SSA 0,60 mm (sencillo)",
+      "ancho_util": "",
+      "precio_efectivo": 19.97,
+      "precio_bcv": 23.8,
+      "montaje_m2": "",
+      "montaje_ml": ""
+    },
+    {
+      "categoria": "Standing Seam",
+      "producto": "Curvo AR y SS38 0,45 mm",
+      "ancho_util": "",
+      "precio_efectivo": 17,
+      "precio_bcv": 20.4,
+      "montaje_m2": "",
+      "montaje_ml": ""
+    },
+    {
+      "categoria": "Standing Seam",
+      "producto": "Curvo AR y SS 0,60 mm",
+      "ancho_util": "",
+      "precio_efectivo": 22.1,
+      "precio_bcv": 26.35,
+      "montaje_m2": "",
+      "montaje_ml": ""
+    },
+    {
+      "categoria": "Standing Seam",
+      "producto": "AASS 0,45 mm (aislado)",
+      "ancho_util": "",
+      "precio_efectivo": 32.3,
+      "precio_bcv": 38.25,
+      "montaje_m2": 11.9,
+      "montaje_ml": 3.4
+    },
+    {
+      "categoria": "Standing Seam",
+      "producto": "AASS 0,60 mm (aislado)",
+      "ancho_util": "",
+      "precio_efectivo": 39.1,
+      "precio_bcv": 46.75,
+      "montaje_m2": "",
+      "montaje_ml": ""
+    },
+    {
+      "categoria": "Standing Seam",
+      "producto": "Curvo AASS38 0,45 mm (aislado)",
+      "ancho_util": "",
+      "precio_efectivo": 37.4,
+      "precio_bcv": 42.5,
+      "montaje_m2": "",
+      "montaje_ml": ""
+    },
+    {
+      "categoria": "Standing Seam",
+      "producto": "Curvo AASS38 0,60 mm (aislado)",
+      "ancho_util": "",
+      "precio_efectivo": 42.5,
+      "precio_bcv": 51,
+      "montaje_m2": "",
+      "montaje_ml": ""
+    },
+    {
+      "categoria": "Paneles y Láminas",
+      "producto": "TP4",
+      "ancho_util": 0.97,
+      "precio_efectivo": 33.15,
+      "precio_bcv": 42.5,
+      "montaje_m2": "",
+      "montaje_ml": ""
+    },
+    {
+      "categoria": "Paneles y Láminas",
+      "producto": "TP3",
+      "ancho_util": 0.97,
+      "precio_efectivo": 32.3,
+      "precio_bcv": 40.8,
+      "montaje_m2": "",
+      "montaje_ml": ""
+    },
+    {
+      "categoria": "Paneles y Láminas",
+      "producto": "Maxipanel",
+      "ancho_util": 1.05,
+      "precio_efectivo": 32.3,
+      "precio_bcv": 40.8,
+      "montaje_m2": "",
+      "montaje_ml": ""
+    },
+    {
+      "categoria": "Paneles y Láminas",
+      "producto": "Maxipanel 65",
+      "ancho_util": 1.05,
+      "precio_efectivo": 34,
+      "precio_bcv": 44.2,
+      "montaje_m2": "",
+      "montaje_ml": ""
+    },
+    {
+      "categoria": "Paneles y Láminas",
+      "producto": "Superpared SP50",
+      "ancho_util": 1.07,
+      "precio_efectivo": 33.15,
+      "precio_bcv": 42.5,
+      "montaje_m2": 11.05,
+      "montaje_ml": 5.1
+    },
+    {
+      "categoria": "Paneles y Láminas",
+      "producto": "R-97 0,45 mm",
+      "ancho_util": 0.97,
+      "precio_efectivo": 11.48,
+      "precio_bcv": 13.6,
+      "montaje_m2": "",
+      "montaje_ml": ""
+    },
+    {
+      "categoria": "Paneles y Láminas",
+      "producto": "R-97 Curvo 0,45 mm",
+      "ancho_util": 0.97,
+      "precio_efectivo": 12.75,
+      "precio_bcv": 14.88,
+      "montaje_m2": "",
+      "montaje_ml": ""
+    },
+    {
+      "categoria": "Paneles y Láminas",
+      "producto": "R-97 0,60 mm",
+      "ancho_util": 0.97,
+      "precio_efectivo": 15.3,
+      "precio_bcv": 17,
+      "montaje_m2": "",
+      "montaje_ml": ""
+    },
+    {
+      "categoria": "Paneles y Láminas",
+      "producto": "R-97 Curvo 0,60 mm",
+      "ancho_util": 0.97,
+      "precio_efectivo": 17,
+      "precio_bcv": 19.13,
+      "montaje_m2": "",
+      "montaje_ml": ""
+    },
+    {
+      "categoria": "Paneles y Láminas",
+      "producto": "R-97 Galv. Natural 0,40 mm",
+      "ancho_util": 0.97,
+      "precio_efectivo": 8.07,
+      "precio_bcv": 8.07,
+      "montaje_m2": "",
+      "montaje_ml": ""
+    },
+    {
+      "categoria": "Paneles y Láminas",
+      "producto": "Noral — Aluminio liso 0,6 mm (solape sencillo)",
+      "ancho_util": 0.85,
+      "precio_efectivo": 10.5,
+      "precio_bcv": 10.5,
+      "montaje_m2": 5.95,
+      "montaje_ml": 0
+    }
+  ],
+  "parametros": {
+    "tornillo_efectivo": 0.26,
+    "tornillo_bcv": 0.36,
+    "tornillo_nombre": "Tornillo autotaladrante 12x3/4\" (fijación estándar)",
+    "remate_efectivo": 7.31,
+    "remate_bcv": 8.84,
+    "remate_nombre": "Flashing/remate perimetral (promedio estimado por ml)",
+    "pieza_remate_m": 2.4,
+    "iva_defecto": 16,
+    "desperdicio_defecto": 7,
+    "tornillos_m2_defecto": 7
+  },
+  "textos": [
+    {
+      "producto": "AASS 0,45 mm (aislado)",
+      "descripcion": "[Texto de ejemplo] Descripción técnica de AASS 0,45 mm (aislado). En la app real este texto viene de la pestaña \"Textos\" de la lista de precios.",
+      "notas": [
+        "Forma de pago: [ejemplo].",
+        "Esta oferta es preliminar y sujeta a medición final en obra.",
+        "Validez de la oferta: [ejemplo] días."
+      ]
+    },
+    {
+      "producto": "SSA 0,45 mm (sencillo)",
+      "descripcion": "[Texto de ejemplo] Descripción técnica de SSA 0,45 mm (sencillo). En la app real este texto viene de la pestaña \"Textos\" de la lista de precios.",
+      "notas": [
+        "Forma de pago: [ejemplo].",
+        "Esta oferta es preliminar y sujeta a medición final en obra.",
+        "Validez de la oferta: [ejemplo] días."
+      ]
+    },
+    {
+      "producto": "Superpared SP50",
+      "descripcion": "[Texto de ejemplo] Descripción técnica de Superpared SP50. En la app real este texto viene de la pestaña \"Textos\" de la lista de precios.",
+      "notas": [
+        "Forma de pago: [ejemplo].",
+        "Esta oferta es preliminar y sujeta a medición final en obra.",
+        "Validez de la oferta: [ejemplo] días."
+      ]
+    },
+    {
+      "producto": "TP4",
+      "descripcion": "[Texto de ejemplo] Descripción técnica de TP4. En la app real este texto viene de la pestaña \"Textos\" de la lista de precios.",
+      "notas": [
+        "Forma de pago: [ejemplo].",
+        "Esta oferta es preliminar y sujeta a medición final en obra.",
+        "Validez de la oferta: [ejemplo] días."
+      ]
+    },
+    {
+      "producto": "R-97 0,45 mm",
+      "descripcion": "[Texto de ejemplo] Descripción técnica de R-97 0,45 mm. En la app real este texto viene de la pestaña \"Textos\" de la lista de precios.",
+      "notas": [
+        "Forma de pago: [ejemplo].",
+        "Esta oferta es preliminar y sujeta a medición final en obra.",
+        "Validez de la oferta: [ejemplo] días."
+      ]
+    },
+    {
+      "producto": "R-97 Curvo 0,45 mm",
+      "descripcion": "[Texto de ejemplo] Descripción técnica de R-97 Curvo 0,45 mm. En la app real este texto viene de la pestaña \"Textos\" de la lista de precios.",
+      "notas": [
+        "Forma de pago: [ejemplo].",
+        "Esta oferta es preliminar y sujeta a medición final en obra.",
+        "Validez de la oferta: [ejemplo] días."
+      ]
+    },
+    {
+      "producto": "R-97 Galv. Natural 0,40 mm",
+      "descripcion": "[Texto de ejemplo] Descripción técnica de R-97 Galv. Natural 0,40 mm. En la app real este texto viene de la pestaña \"Textos\" de la lista de precios.",
+      "notas": [
+        "Forma de pago: [ejemplo].",
+        "Esta oferta es preliminar y sujeta a medición final en obra.",
+        "Validez de la oferta: [ejemplo] días."
+      ]
+    },
+    {
+      "producto": "Noral — Aluminio liso 0,6 mm (solape sencillo)",
+      "descripcion": "[Texto de ejemplo] Descripción técnica de Noral — Aluminio liso 0,6 mm (solape sencillo). En la app real este texto viene de la pestaña \"Textos\" de la lista de precios.",
+      "notas": [
+        "Forma de pago: [ejemplo].",
+        "Esta oferta es preliminar y sujeta a medición final en obra.",
+        "Validez de la oferta: [ejemplo] días."
+      ]
+    }
+  ],
+  "tiposObra": [
+    "Nave industrial / galpón",
+    "Centro comercial / local comercial",
+    "Institucional (colegio, iglesia, edificio público)",
+    "Vivienda / residencial",
+    "Retechado / cambio de techo existente",
+    "Otro"
+  ]
+}

@@ -1,0 +1,275 @@
+[
+  {
+    "key": "direccion",
+    "nombre": "Dirección General",
+    "responsable": "Responsable (ejemplo)",
+    "kpis": [
+      {
+        "key": "ebitda",
+        "nombre": "EBITDA / margen",
+        "unidad": "%",
+        "meta": null,
+        "metaTipo": null
+      },
+      {
+        "key": "caja",
+        "nombre": "Caja disponible",
+        "unidad": "US$",
+        "meta": null,
+        "metaTipo": null
+      },
+      {
+        "key": "crecimiento",
+        "nombre": "Crecimiento de ventas",
+        "unidad": "%",
+        "meta": null,
+        "metaTipo": null
+      },
+      {
+        "key": "riesgos",
+        "nombre": "Riesgos abiertos",
+        "unidad": "núm.",
+        "meta": 0,
+        "metaTipo": "max"
+      }
+    ]
+  },
+  {
+    "key": "comercial",
+    "nombre": "Comercial",
+    "responsable": "Responsable (ejemplo)",
+    "kpis": [
+      {
+        "key": "ventas",
+        "nombre": "Ventas totales",
+        "unidad": "US$",
+        "meta": null,
+        "metaTipo": null
+      },
+      {
+        "key": "margen",
+        "nombre": "Margen sobre ventas",
+        "unidad": "%",
+        "meta": 35,
+        "metaTipo": "min"
+      },
+      {
+        "key": "conversion",
+        "nombre": "% conversión de ofertas",
+        "unidad": "%",
+        "meta": null,
+        "metaTipo": null
+      },
+      {
+        "key": "margenLogrado",
+        "nombre": "Margen logrado vs. cotizado",
+        "unidad": "%",
+        "meta": 35,
+        "metaTipo": "min"
+      }
+    ]
+  },
+  {
+    "key": "compras",
+    "nombre": "Compras",
+    "responsable": "Responsable (ejemplo)",
+    "kpis": [
+      {
+        "key": "otifProv",
+        "nombre": "OTIF proveedores críticos",
+        "unidad": "%",
+        "meta": null,
+        "metaTipo": null
+      },
+      {
+        "key": "leadTime",
+        "nombre": "Lead time real",
+        "unidad": "días",
+        "meta": null,
+        "metaTipo": null
+      },
+      {
+        "key": "variacionPrecio",
+        "nombre": "% variación precio materia prima",
+        "unidad": "%",
+        "meta": null,
+        "metaTipo": null
+      }
+    ]
+  },
+  {
+    "key": "produccion",
+    "nombre": "Producción",
+    "responsable": "Responsable (ejemplo)",
+    "kpis": [
+      {
+        "key": "cumplPlan",
+        "nombre": "% cumplimiento plan semanal",
+        "unidad": "%",
+        "meta": null,
+        "metaTipo": null
+      },
+      {
+        "key": "dispMaquinas",
+        "nombre": "Disponibilidad máquinas críticas",
+        "unidad": "%",
+        "meta": null,
+        "metaTipo": null
+      },
+      {
+        "key": "desperdicio",
+        "nombre": "% desperdicio",
+        "unidad": "%",
+        "meta": null,
+        "metaTipo": null
+      }
+    ]
+  },
+  {
+    "key": "calidad",
+    "nombre": "Calidad",
+    "responsable": "Responsable (ejemplo)",
+    "kpis": [
+      {
+        "key": "ncr",
+        "nombre": "No conformidades (NCR)",
+        "unidad": "núm.",
+        "meta": null,
+        "metaTipo": null
+      },
+      {
+        "key": "retrabajo",
+        "nombre": "% retrabajo",
+        "unidad": "%",
+        "meta": null,
+        "metaTipo": null
+      },
+      {
+        "key": "reclamaciones",
+        "nombre": "Reclamaciones de clientes",
+        "unidad": "núm.",
+        "meta": null,
+        "metaTipo": null
+      }
+    ]
+  },
+  {
+    "key": "logistica",
+    "nombre": "Logística / Despachos",
+    "responsable": "Responsable (ejemplo)",
+    "kpis": [
+      {
+        "key": "otifCliente",
+        "nombre": "OTIF entrega a cliente",
+        "unidad": "%",
+        "meta": null,
+        "metaTipo": null
+      },
+      {
+        "key": "erroresDespacho",
+        "nombre": "Errores de despacho",
+        "unidad": "núm.",
+        "meta": null,
+        "metaTipo": null
+      }
+    ]
+  },
+  {
+    "key": "obras",
+    "nombre": "Obras / Montaje",
+    "responsable": "Responsable (ejemplo)",
+    "kpis": [
+      {
+        "key": "aTiempo",
+        "nombre": "% obras entregadas a tiempo",
+        "unidad": "%",
+        "meta": null,
+        "metaTipo": null
+      },
+      {
+        "key": "incidentes",
+        "nombre": "Incidentes de seguridad",
+        "unidad": "núm.",
+        "meta": 0,
+        "metaTipo": "max"
+      }
+    ]
+  },
+  {
+    "key": "finanzas",
+    "nombre": "Finanzas",
+    "responsable": "Responsable (ejemplo)",
+    "kpis": [
+      {
+        "key": "cajaF",
+        "nombre": "Caja disponible",
+        "unidad": "US$",
+        "meta": null,
+        "metaTipo": null
+      },
+      {
+        "key": "dso",
+        "nombre": "Días de cobro (DSO)",
+        "unidad": "días",
+        "meta": null,
+        "metaTipo": null
+      },
+      {
+        "key": "expCambiaria",
+        "nombre": "Exposición cambiaria",
+        "unidad": "US$",
+        "meta": null,
+        "metaTipo": null
+      }
+    ]
+  },
+  {
+    "key": "rrhh",
+    "nombre": "RRHH",
+    "responsable": "Responsable (ejemplo)",
+    "kpis": [
+      {
+        "key": "coberturaCriticos",
+        "nombre": "Cobertura puestos críticos",
+        "unidad": "%",
+        "meta": null,
+        "metaTipo": null
+      },
+      {
+        "key": "horasFormacion",
+        "nombre": "Horas de formación",
+        "unidad": "hrs",
+        "meta": null,
+        "metaTipo": null
+      },
+      {
+        "key": "rotacionSub",
+        "nombre": "Rotación subcontrata",
+        "unidad": "%",
+        "meta": null,
+        "metaTipo": null
+      }
+    ]
+  },
+  {
+    "key": "it",
+    "nombre": "IT y Sistemas",
+    "responsable": "Responsable (ejemplo)",
+    "kpis": [
+      {
+        "key": "vpnAdopcion",
+        "nombre": "% dispositivos con VPN/2FA",
+        "unidad": "%",
+        "meta": null,
+        "metaTipo": null
+      },
+      {
+        "key": "hubspotAdopcion",
+        "nombre": "Adopción de HubSpot",
+        "unidad": "%",
+        "meta": null,
+        "metaTipo": null
+      }
+    ]
+  }
+]
