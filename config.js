@@ -1,1 +1,1 @@
-window.CENTROLIT_WEB_CONFIG = {"googleClientId":"877797952155-m5p6ud28ogu51gkk6qtf0cu7idua9ko4.apps.googleusercontent.com","preciosFileId":"17wG_ZcfZTnkgONQCXiYZvu0dQZR7hWfOePZBnavdGmA","kpisFileId":"1G6JKNsEve1_lVHT6FcLmF3FjskgW9DzS"};
+window.CENTROLIT_WEB_CONFIG = {"googleClientId":"877797952155-m5p6ud28ogu51gkk6qtf0cu7idua9ko4.apps.googleusercontent.com","preciosFileId":"17wG_ZcfZTnkgONQCXiYZvu0dQZR7hWfOePZBnavdGmA","kpisFileId":"1AQEtXuAyK9zic6zGd6hENhRr5DH4c8Cu_vwgUkz2XzQ"};
