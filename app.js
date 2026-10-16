@@ -13,8 +13,12 @@ const WebApp = (() => {
   let acceso = null, precios = null, kpis = null;
 
   function cfgLoad() {
-    try { cfg = { demo: false, preciosFileId: '', kpisFileId: '', ...JSON.parse(localStorage.getItem('centrolit.web.cfg') || '{}') }; }
-    catch { cfg = { demo: false, preciosFileId: '', kpisFileId: '' }; }
+    // Por defecto del build (config/app.config.json, vía scripts/build-web.js): así nadie tiene
+    // que pegar el enlace del Sheet a mano. Lo guardado en localStorage (si alguien lo cambió en
+    // Ajustes) tiene prioridad.
+    const porDefecto = { demo: false, preciosFileId: window.CENTROLIT_WEB_CONFIG?.preciosFileId || '', kpisFileId: window.CENTROLIT_WEB_CONFIG?.kpisFileId || '' };
+    try { cfg = { ...porDefecto, ...JSON.parse(localStorage.getItem('centrolit.web.cfg') || '{}') }; }
+    catch { cfg = porDefecto; }
   }
   function cfgSave(patch) {
     cfg = { ...cfg, ...patch };
