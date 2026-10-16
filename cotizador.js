@@ -6,7 +6,7 @@ const Cotizador = (() => {
   const TIPOS_OBRA_DEFECTO = ['Nave industrial / galpón', 'Centro comercial / local comercial', 'Institucional', 'Vivienda / residencial', 'Retechado', 'Otro'];
 
   let root, cat, params, textos, tiposObra, puedeInterna;
-  let S = { pago: 'efectivo', modo: 'm2', vista: 'cliente', imagen: null, plano: null, autoComentario: '', autoNumero: '', secciones: [] };
+  let S = { pago: 'efectivo', modo: 'm2', vista: 'cliente', imagen: null, plano: null, autoComentario: '', autoNumero: '', secciones: [], remateModo: 'estimado', flashingsItems: [] };
   let ultima = null;
 
   const $ = (id) => root.querySelector('#' + id);
@@ -21,7 +21,11 @@ const Cotizador = (() => {
       (out[p.categoria] ??= []).push({ n: p.producto, ancho: p.ancho_util || null, efectivo: p.precio_efectivo, bcv: p.precio_bcv });
       if (p.montaje_m2 != null || p.montaje_ml != null) montaje[p.producto] = { m2: p.montaje_m2 ?? 0, ml: p.montaje_ml ?? 0 };
     }
-    return { categorias: out, montaje };
+    // Flashings (punto 4) y fijaciones (punto 5): catálogo real, opcional — vacío hasta que el
+    // Sheet tenga esas pestañas o en datos antiguos sin ellas.
+    const flashings = (data.flashings || []).map((f) => ({ codigo: f.codigo, descripcion: f.descripcion, desarrollo: f.desarrollo_cm, efectivo: f.precio_efectivo, bcv: f.precio_bcv }));
+    const fijaciones = (data.fijaciones || []).map((f) => ({ nombre: f.nombre, efectivo: f.precio_efectivo, uso: f.uso }));
+    return { categorias: out, montaje, flashings, fijaciones };
   }
 
   function productoActual() {
@@ -98,9 +102,21 @@ const Cotizador = (() => {
         <div><label>Desperdicio (%)</label><input type="number" id="desperdicio" min="0" max="30" step="0.5"></div>
         <div><label>Tornillos / m²</label><input type="number" id="tornillos" min="0" step="0.5"></div>
       </div>
+      ${cat.fijaciones.length ? `
+      <label>Fijación específica (catálogo real, opcional)</label>
+      <select id="fijacionCatalogo"><option value="">— usar precio de tornillo general —</option>${cat.fijaciones.map((f, i) => `<option value="${i}">${esc(f.nombre)} — US$ ${fmt(f.efectivo)}</option>`).join('')}</select>
+      <div class="hint" id="fijacionUsoHint"></div>` : ''}
       <div id="remateUnicoBox">
-        <label>Remates / flashings (metros lineales)</label><input type="number" id="remates" value="0" min="0" step="1">
-        <div class="hint">Se venden por pieza de 2,40 m: se redondea hacia arriba al múltiplo más cercano.</div>
+        <label>Remates / flashings</label>
+        <div class="toggle" id="remateModoToggle"><button type="button" data-v="estimado" class="active">Estimado (ml)</button><button type="button" data-v="detallado">Detallado (piezas reales)</button></div>
+        <div id="remateEstimadoBox">
+          <label>Metros lineales</label><input type="number" id="remates" value="0" min="0" step="1">
+          <div class="hint">Se venden por pieza de 2,40 m, a un precio promedio: se redondea hacia arriba al múltiplo más cercano.</div>
+        </div>
+        <div id="remateDetalladoBox" hidden>
+          <div id="flashingsLista"></div>
+          <div class="hint">Cada flashing del catálogo real tiene su propio desarrollo y precio — no se engloban en uno solo (punto 4 del feedback).</div>
+        </div>
       </div>
       <div class="hint" id="remateSeccionesHint" hidden>Los remates de cada sección se ingresan en "Secciones", dentro de cada una.</div>
       <label class="chk"><input type="checkbox" id="incluirMontaje"> Incluir montaje en esta oferta</label>
@@ -300,6 +316,20 @@ const Cotizador = (() => {
     return s.modo === 'ml' ? (parseFloat(s.mlLargo) || 0) * (parseFloat(s.mlAncho) || 0) : parseFloat(s.area) || 0;
   }
 
+  // ---------- Flashings detallados (catálogo real, punto 4 del feedback) ----------
+  function nuevoFlashingItem() {
+    return { id: 'f' + Math.random().toString(36).slice(2, 8), idx: 0, piezas: 0 };
+  }
+  function renderFlashings() {
+    const cont = $('flashingsLista');
+    if (!cont) return;
+    cont.innerHTML = S.flashingsItems.map((it, i) => `
+      <div class="row2 flashing-row" data-idx="${i}">
+        <div><label>Flashing</label><select class="fl-codigo" data-idx="${i}">${cat.flashings.map((f, fi) => `<option value="${fi}" ${fi === it.idx ? 'selected' : ''}>${esc(f.codigo)} — ${esc(f.descripcion)} (desarrollo ${esc(f.desarrollo)} cm) — US$ ${fmt(f.efectivo)}</option>`).join('')}</select></div>
+        <div><label>Piezas</label><input type="number" class="fl-piezas" data-idx="${i}" value="${it.piezas || 0}" min="0" step="1"></div>
+      </div>`).join('') + '<button type="button" class="link" id="agregarFlashing">+ agregar otro flashing</button>';
+  }
+
   // Conserva lo escrito en el formulario cuando se refrescan los precios.
   function snapshot() {
     const s = {};
@@ -326,6 +356,12 @@ const Cotizador = (() => {
     marcar('medidaToggle', S.modo);
     marcar('pagoToggle', S.pago);
     toggleSecciones();
+    if ($('remateModoToggle')) {
+      marcar('remateModoToggle', S.remateModo);
+      $('remateEstimadoBox').hidden = S.remateModo !== 'estimado';
+      $('remateDetalladoBox').hidden = S.remateModo !== 'detallado';
+      if (S.remateModo === 'detallado') renderFlashings();
+    }
   }
 
   const boxDe = { modPrecios: 'preciosManualBox', incluirMontaje: 'montajeBox', incluirFlete: 'fleteBox', incluirImagen: 'imagenUploadBox', incluirPlano: 'planoUploadBox', incluirMargen: 'margenBox' };
@@ -349,7 +385,9 @@ const Cotizador = (() => {
       const t = e.target;
       if (t.id === 'comentarios' || t.type === 'file') return;
       const idx = t.dataset.idx;
-      if (idx !== undefined && S.secciones[idx]) {
+      if (idx !== undefined && t.classList.contains('fl-piezas')) {
+        if (S.flashingsItems[idx]) S.flashingsItems[idx].piezas = t.value;
+      } else if (idx !== undefined && S.secciones[idx]) {
         const s = S.secciones[idx];
         if (t.classList.contains('sec-nombre')) s.nombre = t.value;
         else if (t.classList.contains('sec-area')) s.area = t.value;
@@ -365,6 +403,24 @@ const Cotizador = (() => {
       if (e.target.classList.contains('sec-producto')) {
         const idx = e.target.dataset.idx;
         if (S.secciones[idx]) S.secciones[idx].pv = e.target.value;
+        calcular();
+        return;
+      }
+      if (e.target.classList.contains('fl-codigo')) {
+        const idx = e.target.dataset.idx;
+        if (S.flashingsItems[idx]) S.flashingsItems[idx].idx = +e.target.value;
+        calcular();
+        return;
+      }
+      if (id === 'fijacionCatalogo') {
+        const f = cat.fijaciones[e.target.value];
+        if (f) {
+          if (!chk('modPrecios')) { $('modPrecios').checked = true; toggleBox('modPrecios'); precargarManuales(); }
+          $('precioTornilloManual').value = f.efectivo.toFixed(2);
+          $('fijacionUsoHint').textContent = f.uso ? `Uso habitual: ${f.uso}` : '';
+        } else {
+          $('fijacionUsoHint').textContent = '';
+        }
         calcular();
         return;
       }
@@ -396,6 +452,23 @@ const Cotizador = (() => {
       calcular();
     });
     grid.addEventListener('click', (e) => {
+      const remateModoBtn = e.target.closest('#remateModoToggle button');
+      if (remateModoBtn) {
+        S.remateModo = remateModoBtn.dataset.v;
+        marcar('remateModoToggle', S.remateModo);
+        $('remateEstimadoBox').hidden = S.remateModo !== 'estimado';
+        $('remateDetalladoBox').hidden = S.remateModo !== 'detallado';
+        if (S.remateModo === 'detallado' && S.flashingsItems.length === 0) S.flashingsItems.push(nuevoFlashingItem());
+        if (S.remateModo === 'detallado') renderFlashings();
+        calcular();
+        return;
+      }
+      if (e.target.id === 'agregarFlashing') {
+        S.flashingsItems.push(nuevoFlashingItem());
+        renderFlashings();
+        calcular();
+        return;
+      }
       const secModoBtn = e.target.closest('.sec-modo button');
       if (secModoBtn) {
         const idx = secModoBtn.closest('.sec-modo').dataset.idx;
@@ -530,10 +603,17 @@ const Cotizador = (() => {
         rematesMl: s.rematesMl,
       };
     }) : null;
+    const rematesDetalle = (!multi && S.remateModo === 'detallado')
+      ? S.flashingsItems.map((it) => {
+          const f = cat.flashings[it.idx];
+          return { codigo: f ? f.codigo : '', piezas: it.piezas, precioUnit: f ? f[S.pago] : 0 };
+        })
+      : null;
     const entradas = {
       producto: multi ? null : p, pago: S.pago, area: multi ? 0 : area(),
       desperdicioPct: val('desperdicio'), tornillosPorM2: val('tornillos'), rematesMl: multi ? 0 : val('remates'),
       secciones: seccionesEntrada,
+      rematesDetalle,
       ivaPct: val('iva'), tasaBcv: val('tasabcv'),
       preciosManuales: modPrecios ? { material: val('precioMaterialManual'), tornillo: val('precioTornilloManual'), remate: val('precioRemateManual') } : null,
       montaje: {
@@ -605,11 +685,20 @@ const Cotizador = (() => {
           <td class="r">${r.areaConDesp.toFixed(2)} m²</td><td class="r">US$ ${fmt(r.precioM2)}/m²</td><td class="r">US$ ${fmt(r.materialImporte)}</td></tr>`,
         `<tr><td><strong>Fijaciones</strong>${sub(nombreTornillo)}</td>
           <td>${r.tornillosPorM2} unid./m²<span class="badge-est">estimado</span></td>
-          <td class="r">${r.tornillosCant.toLocaleString('es-VE')} unid.</td><td class="r">US$ ${fmt(r.tornilloPrecio)}</td><td class="r">US$ ${fmt(r.tornillosImporte)}</td></tr>`,
-        `<tr><td><strong>Remates / Flashings</strong>${sub(nombreRemate + ' — se vende por pieza de 2,40 m')}</td>
-          <td>Perímetro estimado: ${r.rematesMl.toLocaleString('es-VE')} ml → ${r.piezasRemate} pieza(s) de 2,40 m<span class="badge-est">estimado</span></td>
-          <td class="r">${r.rematesMlFacturable.toLocaleString('es-VE')} ml</td><td class="r">US$ ${fmt(r.rematePrecio)}</td><td class="r">US$ ${fmt(r.rematesImporte)}</td></tr>`
+          <td class="r">${r.tornillosCant.toLocaleString('es-VE')} unid.</td><td class="r">US$ ${fmt(r.tornilloPrecio)}</td><td class="r">US$ ${fmt(r.tornillosImporte)}</td></tr>`
       );
+      if (r.rematesDetalle) {
+        r.rematesDetalle.forEach((d) => {
+          const f = cat.flashings.find((x) => x.codigo === d.codigo);
+          filas.push(`<tr><td><strong>Flashing ${esc(d.codigo)}</strong>${sub(f ? f.descripcion + ' — desarrollo ' + f.desarrollo + ' cm' : '')}</td>
+            <td>Catálogo real<span class="badge-est">pieza exacta</span></td>
+            <td class="r">${d.piezas}</td><td class="r">US$ ${fmt(d.precioUnit)}</td><td class="r">US$ ${fmt(d.piezas * d.precioUnit)}</td></tr>`);
+        });
+      } else {
+        filas.push(`<tr><td><strong>Remates / Flashings</strong>${sub(nombreRemate + ' — se vende por pieza de 2,40 m')}</td>
+          <td>Perímetro estimado: ${r.rematesMl.toLocaleString('es-VE')} ml → ${r.piezasRemate} pieza(s) de 2,40 m<span class="badge-est">estimado</span></td>
+          <td class="r">${r.rematesMlFacturable.toLocaleString('es-VE')} ml</td><td class="r">US$ ${fmt(r.rematePrecio)}</td><td class="r">US$ ${fmt(r.rematesImporte)}</td></tr>`);
+      }
     }
     if (r.incluirMontaje) {
       filas.push(`<tr><td><strong>Montaje</strong>${sub('Instalación de techo/pantalla y remates — cuadrillas propias')}</td>
@@ -762,10 +851,16 @@ const Cotizador = (() => {
         xCell('Fijaciones'), xCell('Tornillo autotaladrante — fijación estándar'),
         xCell(`${d.tornillosCant} unid.`), xCell(d.tornilloPrecio, 'sMoney', 'Number'), xCell(d.tornillosImporte, 'sMoney', 'Number'),
       ]));
-      rows.push(xRow([
-        xCell('Remates / Flashings'), xCell(`${d.rematesMl} ml → ${d.piezasRemate} pieza(s) de 2,40 m`),
-        xCell(`${d.rematesMlFacturable} ml`), xCell(d.rematePrecio, 'sMoney', 'Number'), xCell(d.rematesImporte, 'sMoney', 'Number'),
-      ]));
+      if (d.rematesDetalle) {
+        d.rematesDetalle.forEach((f) => {
+          rows.push(xRow([xCell('Flashing ' + f.codigo), xCell('Catálogo real'), xCell(f.piezas), xCell(f.precioUnit, 'sMoney', 'Number'), xCell(f.piezas * f.precioUnit, 'sMoney', 'Number')]));
+        });
+      } else {
+        rows.push(xRow([
+          xCell('Remates / Flashings'), xCell(`${d.rematesMl} ml → ${d.piezasRemate} pieza(s) de 2,40 m`),
+          xCell(`${d.rematesMlFacturable} ml`), xCell(d.rematePrecio, 'sMoney', 'Number'), xCell(d.rematesImporte, 'sMoney', 'Number'),
+        ]));
+      }
     }
     if (d.incluirMontaje) {
       rows.push(xRow([
@@ -931,6 +1026,7 @@ const Cotizador = (() => {
         id: S.ofertaId || undefined,
         numOferta: val('numOferta'), cliente: val('cliente') || '(sin nombre)', proyecto: val('proyecto') || '',
         campos: snapshot(), modo: S.modo, pago: S.pago, imagen: S.imagen, plano: S.plano, secciones: S.secciones,
+        remateModo: S.remateModo, flashingsItems: S.flashingsItems,
       };
       const r = await ofertasGuardarImpl(record);
       S.ofertaId = r.id;
@@ -946,6 +1042,8 @@ const Cotizador = (() => {
       S.modo = r.modo || 'm2';
       S.pago = r.pago || 'efectivo';
       S.secciones = r.secciones || [];
+      S.remateModo = r.remateModo || 'estimado';
+      S.flashingsItems = r.flashingsItems || [];
       restaurar(r.campos || {});
       S.imagen = r.imagen || null;
       S.plano = r.plano || null;

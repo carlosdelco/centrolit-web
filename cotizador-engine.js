@@ -40,18 +40,31 @@
     const tornilloPrecio = man ? n(man.tornillo) : p.tornillo[pago];
     const tornillosImporte = tornillosCant * tornilloPrecio;
 
-    // Remates/flashings se venden por PIEZA (2,40 m): se redondea siempre hacia arriba.
+    // Remates/flashings se venden por PIEZA (2,40 m). Dos modos:
+    // - Estimado: un perímetro en ml, redondeado hacia arriba a piezas, a un precio promedio único.
+    // - Detallado: piezas concretas del catálogo real de flashings (cada código tiene su propio
+    //   desarrollo y precio — no se pueden englobar en uno solo, punto 4 del feedback comercial).
     const piezaM = p.piezaRemateM || 2.4;
-    const piezasRemate = rematesMl > 0 ? Math.ceil(rematesMl / piezaM) : 0;
-    const rematesMlFacturable = +(piezasRemate * piezaM).toFixed(6);
-    const rematePrecio = man ? n(man.remate) : p.remate[pago];
-    const rematesImporte = rematesMlFacturable * rematePrecio;
+    const detalle = Array.isArray(it.rematesDetalle) ? it.rematesDetalle.filter((d) => n(d.piezas) > 0) : null;
+    let piezasRemate, rematesMlFacturable, rematePrecio, rematesImporte;
+    if (detalle && detalle.length) {
+      piezasRemate = detalle.reduce((a, d) => a + n(d.piezas), 0);
+      rematesMlFacturable = +(piezasRemate * piezaM).toFixed(6);
+      rematesImporte = detalle.reduce((a, d) => a + n(d.piezas) * n(d.precioUnit), 0);
+      rematePrecio = piezasRemate > 0 ? rematesImporte / piezasRemate : 0;
+    } else {
+      piezasRemate = rematesMl > 0 ? Math.ceil(rematesMl / piezaM) : 0;
+      rematesMlFacturable = +(piezasRemate * piezaM).toFixed(6);
+      rematePrecio = man ? n(man.remate) : p.remate[pago];
+      rematesImporte = rematesMlFacturable * rematePrecio;
+    }
 
     return {
       nombre: it.nombre || (it.producto && it.producto.n) || '',
       area, desperdicioPct, areaConDesp, precioM2, materialImporte, precioFaltante,
       tornillosPorM2, tornillosCant, tornilloPrecio, tornillosImporte,
       rematesMl, piezasRemate, rematesMlFacturable, rematePrecio, rematesImporte,
+      rematesDetalle: detalle && detalle.length ? detalle : null,
     };
   }
 
@@ -87,6 +100,8 @@
       rematesMlFacturable,
       rematePrecio: rematesMlFacturable > 0 ? rematesImporte / rematesMlFacturable : 0,
       rematesImporte,
+      // El detalle por pieza de flashing solo se soporta en modo de un solo ítem por ahora.
+      rematesDetalle: null,
     };
   }
 
@@ -112,9 +127,9 @@
     const multi = Array.isArray(i.secciones) && i.secciones.length > 0;
     const base = multi
       ? sumarSecciones(i.secciones.map((s) => ({ ...s, pago: s.pago || pago, preciosManuales: s.preciosManuales || man })), p)
-      : calcularItem({ producto: i.producto, pago, area: i.area, desperdicioPct: i.desperdicioPct, tornillosPorM2: i.tornillosPorM2, rematesMl: i.rematesMl, preciosManuales: man }, p);
+      : calcularItem({ producto: i.producto, pago, area: i.area, desperdicioPct: i.desperdicioPct, tornillosPorM2: i.tornillosPorM2, rematesMl: i.rematesMl, rematesDetalle: i.rematesDetalle, preciosManuales: man }, p);
 
-    const { area, desperdicioPct, areaConDesp, precioM2, materialImporte, precioFaltante, tornillosPorM2, tornillosCant, tornilloPrecio, tornillosImporte, rematesMl, piezasRemate, rematesMlFacturable, rematePrecio, rematesImporte } = base;
+    const { area, desperdicioPct, areaConDesp, precioM2, materialImporte, precioFaltante, tornillosPorM2, tornillosCant, tornilloPrecio, tornillosImporte, rematesMl, piezasRemate, rematesMlFacturable, rematePrecio, rematesImporte, rematesDetalle } = base;
     const secciones = multi ? base.secciones : null;
 
     const incluirMontaje = !!(i.montaje && i.montaje.incluir);
@@ -142,7 +157,7 @@
     const r = {
       area, desperdicioPct, areaConDesp, precioM2, materialImporte, precioFaltante,
       tornillosPorM2, tornillosCant, tornilloPrecio, tornillosImporte,
-      rematesMl, piezasRemate, rematesMlFacturable, rematePrecio, rematesImporte,
+      rematesMl, piezasRemate, rematesMlFacturable, rematePrecio, rematesImporte, rematesDetalle,
       secciones,
       incluirMontaje, precioMontajeM2, precioMontajeMl, montajeImporte,
       diasGrua, precioGruaDia, gruaImporte, andamios, supervisor,

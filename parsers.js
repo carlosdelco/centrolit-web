@@ -91,6 +91,33 @@ function parsePrecios({ productos, parametros, textos, tiposObra }) {
   return { productos: prods, parametros: params, textos: txt, tiposObra: tipos };
 }
 
+// Catálogo real de flashings (punto 4 del feedback): cada código tiene su propio desarrollo y
+// precio, no se pueden englobar en un precio único por ml. Pestaña opcional — si no existe en el
+// Sheet (todavía), se devuelve vacío en vez de fallar, para no romper Productos/Parametros/Textos.
+function parseFlashings(rows) {
+  return tabla(rows)
+    .filter((f) => f.codigo && f.descripcion)
+    .map((f) => ({
+      codigo: String(f.codigo).trim(),
+      calibre: num(f.calibre),
+      descripcion: String(f.descripcion).trim(),
+      desarrollo_cm: String(f.desarrollo_cm ?? '').trim(),
+      precio_efectivo: num(f.precio_efectivo),
+      precio_bcv: num(f.precio_bcv) ?? num(f.precio_efectivo),
+    }));
+}
+
+// Catálogo real de fijaciones (punto 5): combos de tornillos/clips/capelotes por producto ("uso").
+function parseFijaciones(rows) {
+  return tabla(rows)
+    .filter((f) => f.nombre)
+    .map((f) => ({
+      nombre: String(f.nombre).trim(),
+      precio_efectivo: num(f.precio_efectivo),
+      uso: String(f.uso ?? '').trim(),
+    }));
+}
+
 function parseKpis({ areas, kpis, historial }) {
   const filasAreas = tabla(areas);
   requerir(filasAreas, ['area', 'nombre'], 'Areas');
@@ -150,5 +177,5 @@ function fechaISO(v) {
   return '';
 }
 
-return { norm, num, tabla, parsePrecios, parseKpis, fechaISO };
+return { norm, num, tabla, parsePrecios, parseFlashings, parseFijaciones, parseKpis, fechaISO };
 });

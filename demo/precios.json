@@ -190,6 +190,372 @@
       "montaje_ml": null
     }
   ],
+  "flashings": [
+    {
+      "codigo": "SSL5",
+      "calibre": 26,
+      "descripcion": "Flashings L 5 x 5",
+      "desarrollo_cm": "10",
+      "precio_efectivo": 5.15,
+      "precio_bcv": 6.18
+    },
+    {
+      "codigo": "AASSL10",
+      "calibre": 26,
+      "descripcion": "Flashing L 10 x 10",
+      "desarrollo_cm": "20",
+      "precio_efectivo": 7.55,
+      "precio_bcv": 9.06
+    },
+    {
+      "codigo": "AASSL15",
+      "calibre": 26,
+      "descripcion": "Flashing L 15 x 15",
+      "desarrollo_cm": "30",
+      "precio_efectivo": 10.56,
+      "precio_bcv": 12.67
+    },
+    {
+      "codigo": "SSU5",
+      "calibre": 26,
+      "descripcion": "Flashing U rect. 5,5",
+      "desarrollo_cm": "6",
+      "precio_efectivo": 3.96,
+      "precio_bcv": 4.76
+    },
+    {
+      "codigo": "AASSU10",
+      "calibre": 26,
+      "descripcion": "Flashing U rect. 10,5",
+      "desarrollo_cm": "11",
+      "precio_efectivo": 6.47,
+      "precio_bcv": 7.76
+    },
+    {
+      "codigo": "FCP30",
+      "calibre": 26,
+      "descripcion": "Flashing c/pared 30",
+      "desarrollo_cm": "30",
+      "precio_efectivo": 11.39,
+      "precio_bcv": 13.67
+    },
+    {
+      "codigo": "SSGO8",
+      "calibre": 26,
+      "descripcion": "Gotero SS",
+      "desarrollo_cm": "20",
+      "precio_efectivo": 7.97,
+      "precio_bcv": 9.56
+    },
+    {
+      "codigo": "ESP15",
+      "calibre": 26,
+      "descripcion": "Esp menor a 15",
+      "desarrollo_cm": "15",
+      "precio_efectivo": 6.05,
+      "precio_bcv": 7.26
+    },
+    {
+      "codigo": "ESP20",
+      "calibre": 26,
+      "descripcion": "Esp 16 a 20",
+      "desarrollo_cm": "20",
+      "precio_efectivo": 7.97,
+      "precio_bcv": 9.56
+    },
+    {
+      "codigo": "ESP30",
+      "calibre": 26,
+      "descripcion": "Esp 21 a 30",
+      "desarrollo_cm": "30",
+      "precio_efectivo": 10.97,
+      "precio_bcv": 13.17
+    },
+    {
+      "codigo": "ESP40",
+      "calibre": 26,
+      "descripcion": "Esp 31 a 40",
+      "desarrollo_cm": "40",
+      "precio_efectivo": 12.78,
+      "precio_bcv": 15.34
+    },
+    {
+      "codigo": "ESP60",
+      "calibre": 26,
+      "descripcion": "Esp 41 a 60",
+      "desarrollo_cm": "52",
+      "precio_efectivo": 18.19,
+      "precio_bcv": 21.83
+    },
+    {
+      "codigo": "ESP20C",
+      "calibre": 26,
+      "descripcion": "Curvo hasta 20 cm",
+      "desarrollo_cm": "20",
+      "precio_efectivo": 10.04,
+      "precio_bcv": 12.05
+    },
+    {
+      "codigo": "ESP30C",
+      "calibre": 26,
+      "descripcion": "Curvo hasta 30 cm",
+      "desarrollo_cm": "30",
+      "precio_efectivo": 13.05,
+      "precio_bcv": 15.66
+    },
+    {
+      "codigo": "CUDOB",
+      "calibre": 26,
+      "descripcion": "Cumbrera doble (Standing Seam)",
+      "desarrollo_cm": "60+40",
+      "precio_efectivo": 17.43,
+      "precio_bcv": 20.92
+    },
+    {
+      "codigo": "LFP7",
+      "calibre": 20,
+      "descripcion": "Esquinero interno, desarrollo 16 cm",
+      "desarrollo_cm": "16",
+      "precio_efectivo": 7.97,
+      "precio_bcv": 9.56
+    },
+    {
+      "codigo": "LFP10",
+      "calibre": 20,
+      "descripcion": "Esquinero externo, desarrollo 20 cm",
+      "desarrollo_cm": "20",
+      "precio_efectivo": 7.97,
+      "precio_bcv": 9.56
+    },
+    {
+      "codigo": "USP50",
+      "calibre": 24,
+      "descripcion": "Flashing U superior SP50",
+      "desarrollo_cm": "16",
+      "precio_efectivo": 5.56,
+      "precio_bcv": 6.67
+    },
+    {
+      "codigo": "UPSP50",
+      "calibre": 24,
+      "descripcion": "Flashing U piso SP50",
+      "desarrollo_cm": "16",
+      "precio_efectivo": 5.56,
+      "precio_bcv": 6.67
+    },
+    {
+      "codigo": "VSP50",
+      "calibre": 24,
+      "descripcion": "Flashing U ventana SP50",
+      "desarrollo_cm": "13",
+      "precio_efectivo": 5.56,
+      "precio_bcv": 6.67
+    },
+    {
+      "codigo": "LSP50",
+      "calibre": 24,
+      "descripcion": "Flashing apoyo SP50",
+      "desarrollo_cm": "15",
+      "precio_efectivo": 5.98,
+      "precio_bcv": 7.17
+    },
+    {
+      "codigo": "CUTTP4",
+      "calibre": 26,
+      "descripcion": "Cumbrera troquelada 1 mt. (TP4)",
+      "desarrollo_cm": "60",
+      "precio_efectivo": 11.3,
+      "precio_bcv": 13.55
+    },
+    {
+      "codigo": "CUSTP4",
+      "calibre": 26,
+      "descripcion": "Cumbrera sencilla 2,40 mt. (TP4)",
+      "desarrollo_cm": "60",
+      "precio_efectivo": 14.94,
+      "precio_bcv": 17.93
+    },
+    {
+      "codigo": "CUTP4",
+      "calibre": 26,
+      "descripcion": "Cumbrera doble (TP4)",
+      "desarrollo_cm": "60+40",
+      "precio_efectivo": 21.58,
+      "precio_bcv": 25.9
+    },
+    {
+      "codigo": "CUDTP4",
+      "calibre": 26,
+      "descripcion": "Cumbrera diagonal TP4",
+      "desarrollo_cm": "60",
+      "precio_efectivo": 11.39,
+      "precio_bcv": 13.67
+    },
+    {
+      "codigo": "LATP4",
+      "calibre": 26,
+      "descripcion": "Flashing lateral/superior TP4",
+      "desarrollo_cm": "42",
+      "precio_efectivo": 8.38,
+      "precio_bcv": 10.06
+    },
+    {
+      "codigo": "CPTP4",
+      "calibre": 26,
+      "descripcion": "Flashing contra pared TP4",
+      "desarrollo_cm": "30",
+      "precio_efectivo": 6.88,
+      "precio_bcv": 8.26
+    },
+    {
+      "codigo": "GTP4",
+      "calibre": 26,
+      "descripcion": "Flashing gotero TP4",
+      "desarrollo_cm": "27",
+      "precio_efectivo": 6.47,
+      "precio_bcv": 7.76
+    },
+    {
+      "codigo": "GTP4A",
+      "calibre": 26,
+      "descripcion": "Flashing gotero tapa anime",
+      "desarrollo_cm": "12",
+      "precio_efectivo": 3.81,
+      "precio_bcv": 4.57
+    }
+  ],
+  "fijaciones": [
+    {
+      "nombre": "Tornillo autoroscante 10 x 3/4\" c/a",
+      "precio_efectivo": 0.33,
+      "uso": "TP4 entre correas + arandela"
+    },
+    {
+      "nombre": "Tornillo autotaladrante 12 x 3/4\" Punta 3",
+      "precio_efectivo": 0.35,
+      "uso": "SS sin arandela"
+    },
+    {
+      "nombre": "Tornillo autotaladrante 12 x 1\" Punta 3",
+      "precio_efectivo": 0.37,
+      "uso": "R-97 onda baja + arandela"
+    },
+    {
+      "nombre": "Tornillo autotaladrante 12 x 1 1/4\" Punta 3",
+      "precio_efectivo": 0.46,
+      "uso": ""
+    },
+    {
+      "nombre": "Tornillo autotaladrante 12 x 1 1/2\" Punta 3",
+      "precio_efectivo": 0.58,
+      "uso": ""
+    },
+    {
+      "nombre": "Tornillo autotaladrante 12 x 4\" Punta 3",
+      "precio_efectivo": 0.76,
+      "uso": ""
+    },
+    {
+      "nombre": "Tornillo autotaladrante 14 x 2 1/2\" Punta 3",
+      "precio_efectivo": 0.7,
+      "uso": "R-97 onda alta + arandela"
+    },
+    {
+      "nombre": "Tornillo autotaladrante 14 x 3\" Punta 3",
+      "precio_efectivo": 0.76,
+      "uso": ""
+    },
+    {
+      "nombre": "Tornillo autotaladrante 14 x 4\" Punta 3",
+      "precio_efectivo": 0.79,
+      "uso": "SP75 + arandela"
+    },
+    {
+      "nombre": "Tornillo autotaladrante 14 x 5\" Punta 3",
+      "precio_efectivo": 0.9,
+      "uso": "SP100 + arandela"
+    },
+    {
+      "nombre": "Tornillo autotaladrante 14 x 6\" Punta 3",
+      "precio_efectivo": 1.05,
+      "uso": "TP4 + capelote + arandela"
+    },
+    {
+      "nombre": "Tornillo autotaladrante 12 x 7/8\" Punta 3, cabeza inyectada blanca",
+      "precio_efectivo": 0.58,
+      "uso": ""
+    },
+    {
+      "nombre": "Tornillo autotaladrante 12 x 4\" Punta 3, cabeza inyectada blanca",
+      "precio_efectivo": 1.16,
+      "uso": ""
+    },
+    {
+      "nombre": "Tornillo autotaladrante 12 x 5\" Punta 3, cabeza inyectada blanca",
+      "precio_efectivo": 1.34,
+      "uso": ""
+    },
+    {
+      "nombre": "Tornillo autotaladrante 12 x 3/4\" Punta 3, inoxidable",
+      "precio_efectivo": 0.9,
+      "uso": ""
+    },
+    {
+      "nombre": "Tornillo autotaladrante 12 x 1 1/4\" Punta 5, inoxidable",
+      "precio_efectivo": 1.43,
+      "uso": ""
+    },
+    {
+      "nombre": "Tornillo autotaladrante 12 x 1 1/4\" Punta 6",
+      "precio_efectivo": 0.64,
+      "uso": "R-97 en vigas I o similar + arandela"
+    },
+    {
+      "nombre": "Tornillo autotaladrante 14 x 6\" Punta 6",
+      "precio_efectivo": 0.93,
+      "uso": "TP4 en vigas I + capelote"
+    },
+    {
+      "nombre": "Arandela metálica con neopreno",
+      "precio_efectivo": 0.09,
+      "uso": ""
+    },
+    {
+      "nombre": "Capelote blanco con neopreno",
+      "precio_efectivo": 0.7,
+      "uso": ""
+    },
+    {
+      "nombre": "Clip SSA",
+      "precio_efectivo": 0.58,
+      "uso": "Fijación oculta SSA (clips + tornillos)"
+    },
+    {
+      "nombre": "Clip AASS",
+      "precio_efectivo": 0.7,
+      "uso": "Fijación oculta AASS (clips + tornillos)"
+    },
+    {
+      "nombre": "Remache aluminio 5/32\" x 3/8\"",
+      "precio_efectivo": 0.09,
+      "uso": ""
+    },
+    {
+      "nombre": "Remache aluminio 5/32\" x 3/8\", blanco",
+      "precio_efectivo": 0.11,
+      "uso": ""
+    },
+    {
+      "nombre": "Clavos Hilti 16P8",
+      "precio_efectivo": 1.34,
+      "uso": ""
+    },
+    {
+      "nombre": "Fulminantes Power rojos 0,27",
+      "precio_efectivo": 1.79,
+      "uso": ""
+    }
+  ],
   "parametros": {
     "tornillo_efectivo": 0.26,
     "tornillo_bcv": 0.36,
