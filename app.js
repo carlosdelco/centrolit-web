@@ -15,10 +15,15 @@ const WebApp = (() => {
   function cfgLoad() {
     // Por defecto del build (config/app.config.json, vía scripts/build-web.js): así nadie tiene
     // que pegar el enlace del Sheet a mano. Lo guardado en localStorage (si alguien lo cambió en
-    // Ajustes) tiene prioridad.
+    // Ajustes) tiene prioridad — pero solo si de verdad apunta a OTRO fichero. Una cadena vacía
+    // guardada de una visita anterior (p. ej. antes de que existiera este valor por defecto) no
+    // debe tapar el default para siempre.
     const porDefecto = { demo: false, preciosFileId: window.CENTROLIT_WEB_CONFIG?.preciosFileId || '', kpisFileId: window.CENTROLIT_WEB_CONFIG?.kpisFileId || '' };
-    try { cfg = { ...porDefecto, ...JSON.parse(localStorage.getItem('centrolit.web.cfg') || '{}') }; }
-    catch { cfg = porDefecto; }
+    let guardado = {};
+    try { guardado = JSON.parse(localStorage.getItem('centrolit.web.cfg') || '{}'); } catch { guardado = {}; }
+    if (!guardado.preciosFileId) delete guardado.preciosFileId;
+    if (!guardado.kpisFileId) delete guardado.kpisFileId;
+    cfg = { ...porDefecto, ...guardado };
   }
   function cfgSave(patch) {
     cfg = { ...cfg, ...patch };
