@@ -8,7 +8,7 @@ const WebApp = (() => {
   const root = document.getElementById('root');
   const views = {};
   let vista = 'cotizador';
-  let cfg = { demo: false, preciosFileId: '', kpisFileId: '', pedidosFileId: '' };
+  let cfg = { demo: false, preciosFileId: '', kpisFileId: '', pedidosFileId: '', statusPedidosFileId: '' };
   let empresa = {};
   let acceso = null, precios = null, kpis = null, pedidos = null;
 
@@ -23,12 +23,14 @@ const WebApp = (() => {
       preciosFileId: window.CENTROLIT_WEB_CONFIG?.preciosFileId || '',
       kpisFileId: window.CENTROLIT_WEB_CONFIG?.kpisFileId || '',
       pedidosFileId: window.CENTROLIT_WEB_CONFIG?.pedidosFileId || '',
+      statusPedidosFileId: window.CENTROLIT_WEB_CONFIG?.statusPedidosFileId || '',
     };
     let guardado = {};
     try { guardado = JSON.parse(localStorage.getItem('centrolit.web.cfg') || '{}'); } catch { guardado = {}; }
     if (!guardado.preciosFileId) delete guardado.preciosFileId;
     if (!guardado.kpisFileId) delete guardado.kpisFileId;
     if (!guardado.pedidosFileId) delete guardado.pedidosFileId;
+    if (!guardado.statusPedidosFileId) delete guardado.statusPedidosFileId;
     cfg = { ...porDefecto, ...guardado };
   }
   function cfgSave(patch) {
@@ -52,7 +54,7 @@ const WebApp = (() => {
       <button class="btn" id="btnLogin" ${WebAuth.isConfigured() ? '' : 'disabled'}>Iniciar sesión con Google</button>
       <button class="btn secondary" id="btnDemo">Probar con datos de demostración</button>
       ${WebAuth.isConfigured() ? '' : '<div class="login-note"><strong>Esta instancia aún no tiene configurado el inicio de sesión con Google.</strong> Mientras tanto puedes usar el modo demo.</div>'}
-      <div class="login-note">Esta app solo pide permiso de <em>lectura</em>. El acceso a los datos lo decide Google Drive, no esta app, y no se guarda tu contraseña.</div>
+      <div class="login-note">Esta app pide permiso para leer y registrar en hojas de Google Sheets, y leer el fichero de estado de pedidos en Drive. El acceso a los datos lo decide Google Drive, no esta app, y no se guarda tu contraseña.</div>
     </div></div>`;
     document.getElementById('btnDemo').onclick = () => { cfgSave({ demo: true }); boot(); };
     document.getElementById('btnLogin').onclick = async (e) => {
@@ -74,7 +76,7 @@ const WebApp = (() => {
     [precios, acceso, pedidos] = await Promise.all([
       WebData.getPrecios({ fileId: cfg.preciosFileId, demoMode: cfg.demo, refresh }),
       WebData.accesoKpis(cfg.kpisFileId, cfg.demo),
-      WebData.getPedidos(cfg.pedidosFileId, 'Pedidos', cfg.demo),
+      WebData.getPedidos(cfg.pedidosFileId, cfg.statusPedidosFileId, 'Pedidos', cfg.demo),
     ]);
     kpis = acceso.visible ? await WebData.getKpis({ fileId: cfg.kpisFileId, demoMode: cfg.demo, refresh }) : null;
     if (!cfg.demo && precios?.code === 'no_session') return pantallaLogin();
@@ -85,6 +87,8 @@ const WebApp = (() => {
     const NAV = [
       { id: 'cotizador', icono: '🧮', texto: 'Cotizador' },
       { id: 'pedidos', icono: '📦', texto: 'Pedidos' },
+      { id: 'clientes', icono: '👤', texto: 'Clientes' },
+      { id: 'produccion', icono: '🏭', texto: 'Producción' },
       { id: 'dashboard', icono: '📊', texto: 'Cuadro de Mando', soloAcceso: true },
       { id: 'ajustes', icono: '⚙️', texto: 'Ajustes' },
     ];
@@ -95,15 +99,17 @@ const WebApp = (() => {
         <div class="sidebar-foot">${cfg.demo ? 'Modo demo' : esc(email || '')}</div>
       </nav>
       <div class="main"><div class="topbar"><div><h1 id="tTitulo"></h1><div class="sub" id="tSub"></div></div><div class="right" id="tRight"></div></div>
-      <div class="content"><div id="v-cotizador"></div><div id="v-pedidos" hidden></div><div id="v-dashboard" hidden></div><div id="v-ajustes" hidden></div></div></div></div>`;
-    for (const id of ['cotizador', 'pedidos', 'dashboard', 'ajustes']) views[id] = document.getElementById('v-' + id);
+      <div class="content"><div id="v-cotizador"></div><div id="v-pedidos" hidden></div><div id="v-clientes" hidden></div><div id="v-produccion" hidden></div><div id="v-dashboard" hidden></div><div id="v-ajustes" hidden></div></div></div></div>`;
+    for (const id of ['cotizador', 'pedidos', 'clientes', 'produccion', 'dashboard', 'ajustes']) views[id] = document.getElementById('v-' + id);
 
     root.querySelector('.sidebar').onclick = (e) => {
       const b = e.target.closest('[data-v]');
       if (b) mostrar(b.dataset.v);
     };
     document.getElementById('tRight').onclick = (e) => e.target.closest('[data-act="refrescar"]') && refrescar();
-    views.cotizador.onclick = views.pedidos.onclick = views.dashboard.onclick = (e) => e.target.closest('[data-act="refrescar"]') && refrescar();
+    for (const v of ['cotizador', 'pedidos', 'clientes', 'produccion', 'dashboard']) {
+      views[v].onclick = (e) => e.target.closest('[data-act="refrescar"]') && refrescar();
+    }
 
     montarModulos();
     if (vista === 'dashboard' && !acceso.visible) vista = 'cotizador';
@@ -114,6 +120,8 @@ const WebApp = (() => {
     if (precios.ok) Cotizador.mount(views.cotizador, { precios, acceso, empresa, logoSrc: 'assets/logo.png', email: WebAuth.current()?.email, pedidosFileId: cfg.pedidosFileId, demo: cfg.demo });
     else views.cotizador.innerHTML = bloqueError(precios, true);
     Pedidos.mount(views.pedidos, pedidos);
+    Clientes.mount(views.clientes, pedidos);
+    Produccion.mount(views.produccion, pedidos);
     if (acceso.visible && kpis) Dashboard.mount(views.dashboard, kpis);
     montarAjustes();
   }
@@ -137,9 +145,11 @@ const WebApp = (() => {
         <input type="text" id="urlPrecios" placeholder="Pega el enlace de la hoja de Google" value="${esc(cfg.preciosFileId ? 'https://docs.google.com/spreadsheets/d/' + cfg.preciosFileId : '')}">
         <label>KPIs (Cuadro de Mando — solo Dirección)</label>
         <input type="text" id="urlKpis" placeholder="Pega el enlace de la hoja de Google" value="${esc(cfg.kpisFileId ? 'https://docs.google.com/spreadsheets/d/' + cfg.kpisFileId : '')}">
-        <label>Pedidos (puente con Centrolit Gestión)</label>
+        <label>Pedidos (registro de "Pasar a pedido")</label>
         <input type="text" id="urlPedidos" placeholder="Pega el enlace de la hoja de Google" value="${esc(cfg.pedidosFileId ? 'https://docs.google.com/spreadsheets/d/' + cfg.pedidosFileId : '')}">
-        <div class="hint">Deben ser hojas nativas de Google Sheets (ver docs/HOJAS-GOOGLE.md). Si tu cuenta no tiene permiso sobre la hoja de KPIs, el Cuadro de Mando no aparece.</div>
+        <label>Estado real de pedidos (STATUS PEDIDOS.xlsx en Drive)</label>
+        <input type="text" id="urlStatusPedidos" placeholder="Pega el enlace del fichero en Drive" value="${esc(cfg.statusPedidosFileId ? 'https://drive.google.com/file/d/' + cfg.statusPedidosFileId : '')}">
+        <div class="hint">Precios y KPIs deben ser hojas nativas de Google Sheets (ver docs/HOJAS-GOOGLE.md). El fichero de estado de pedidos es la excepción: es el .xlsx real del equipo tal cual vive en Drive. Si tu cuenta no tiene permiso sobre la hoja de KPIs, el Cuadro de Mando no aparece.</div>
         <div class="btnrow" style="margin-top:12px"><button class="btn" data-act="guardar">Guardar enlaces</button></div>
       </div>
     </div>`;
@@ -160,13 +170,16 @@ const WebApp = (() => {
           const urlPrecios = views.ajustes.querySelector('#urlPrecios').value;
           const urlKpis = views.ajustes.querySelector('#urlKpis').value;
           const urlPedidos = views.ajustes.querySelector('#urlPedidos').value;
+          const urlStatusPedidos = views.ajustes.querySelector('#urlStatusPedidos').value;
           const idPrecios = extraer(urlPrecios);
           const idKpis = extraer(urlKpis);
           const idPedidos = extraer(urlPedidos);
+          const idStatusPedidos = extraer(urlStatusPedidos);
           if (urlPrecios.trim() && !idPrecios) return toast('El enlace de precios no parece válido.', 'error');
           if (urlKpis.trim() && !idKpis) return toast('El enlace de KPIs no parece válido.', 'error');
           if (urlPedidos.trim() && !idPedidos) return toast('El enlace de Pedidos no parece válido.', 'error');
-          cfgSave({ preciosFileId: idPrecios, kpisFileId: idKpis, pedidosFileId: idPedidos });
+          if (urlStatusPedidos.trim() && !idStatusPedidos) return toast('El enlace del fichero de estado de pedidos no parece válido.', 'error');
+          cfgSave({ preciosFileId: idPrecios, kpisFileId: idKpis, pedidosFileId: idPedidos, statusPedidosFileId: idStatusPedidos });
           toast('Guardado.');
         }
         if (!cfg.demo && !WebAuth.current()) return pantallaLogin();
@@ -184,7 +197,9 @@ const WebApp = (() => {
     root.querySelectorAll('.navitem').forEach((b) => b.classList.toggle('active', b.dataset.v === id));
     const titulos = {
       cotizador: ['Cotizador', 'Genera la propuesta técnico-comercial y expórtala a PDF o Excel.', precios && estadoDatos(precios, 'Precios')],
-      pedidos: ['Pedidos', 'Ofertas pasadas a pedido, enviadas a Centrolit Gestión.', pedidos && estadoDatos(pedidos, 'Pedidos')],
+      pedidos: ['Pedidos', 'Pedidos reales (STATUS PEDIDOS.xlsx) y ofertas pasadas a pedido desde el Cotizador.', pedidos && estadoDatos(pedidos, 'Pedidos')],
+      clientes: ['Clientes', 'Derivado de los pedidos reales, con datos de contacto cuando vienen del Cotizador.', pedidos && estadoDatos(pedidos, 'Pedidos')],
+      produccion: ['Producción', 'Tablero de estado de fabricación y montaje.', pedidos && estadoDatos(pedidos, 'Pedidos')],
       dashboard: ['Cuadro de Mando', 'Última semana cargada por área — solo Dirección.', kpis && estadoDatos(kpis, 'KPIs')],
       ajustes: ['Ajustes', 'Cuenta de Google y ficheros de datos.', ''],
     };

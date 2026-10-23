@@ -163,6 +163,48 @@ function parseKpis({ areas, kpis, historial }) {
   return { areas: lista, historial: hist };
 }
 
+// Pedido real → planta, a partir de la letra inicial del código (P/S ya usados en el Grupo;
+// cualquier otra letra o código irregular cae en "V" sin ocultar el código original).
+function plantaDeCodigo(codigo) {
+  const m = String(codigo ?? '').trim().match(/^[A-Za-z]/);
+  const letra = m ? m[0].toUpperCase() : '';
+  return letra === 'P' || letra === 'S' ? letra : 'V';
+}
+
+// Clasifica un texto libre de estado de fabricación/montaje en 3 etapas, para poder agrupar sin
+// inventar un cronograma que el fichero real no tiene. Heurística sobre texto/porcentaje tal cual
+// lo escribe el equipo (p. ej. "Fabricado y entregado", "100%", "sin fabricar", "0%").
+function clasificarEtapa(v) {
+  const s = norm(v);
+  if (!s) return 'sin_dato';
+  if (s === '100' || s.includes('entregado') || s.includes('terminado')) return 'terminado';
+  if (s === '0' || s.includes('sin_fabricar') || s.includes('por_definir')) return 'sin_iniciar';
+  return 'en_curso';
+}
+
+// Parsea STATUS PEDIDOS.xlsx (fichero real del equipo en Drive, no un Sheet nuestro) — fechas se
+// dejan tal cual vienen (texto libre, formatos inconsistentes en el fichero real: "01/08/" sin
+// año, "SEMANA DEL 15 /09", M/D/Y mezclado con D/M/Y) en vez de forzarlas a una fecha que podría
+// quedar mal interpretada.
+function parseStatusPedidos(rows) {
+  return tabla(rows)
+    .filter((f) => f.pedido && norm(f.cliente) !== 'eliminado')
+    .map((f) => ({
+      pedido: String(f.pedido).trim(),
+      planta: plantaDeCodigo(f.pedido),
+      cliente: String(f.cliente ?? '').trim(),
+      tipoProducto: String(f.tipo_de_producto ?? '').trim(),
+      fechaProgramada: String(f.fecha_programada_de_fabricacion ?? '').trim(),
+      statusFabricacion: String(f.status_de_fabricacion ?? '').trim(),
+      statusMontaje: String(f.status_montaje ?? '').trim(),
+      fechaCulminacion: String(f.fecha_de_culminacion ?? '').trim(),
+      situacion: String(f.situacion ?? '').trim(),
+      observaciones: String(f.observaciones ?? '').trim(),
+      etapaFabricacion: clasificarEtapa(f.status_de_fabricacion),
+      etapaMontaje: clasificarEtapa(f.status_montaje),
+    }));
+}
+
 // Acepta 2026-09-14, 14/09/2026 (formato es-VE) o un serial de Excel/Sheets.
 function fechaISO(v) {
   const s = String(v ?? '').trim();
@@ -177,5 +219,5 @@ function fechaISO(v) {
   return '';
 }
 
-return { norm, num, tabla, parsePrecios, parseFlashings, parseFijaciones, parseKpis, fechaISO };
+return { norm, num, tabla, parsePrecios, parseFlashings, parseFijaciones, parseKpis, parseStatusPedidos, fechaISO };
 });

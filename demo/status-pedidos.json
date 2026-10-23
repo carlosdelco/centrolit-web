@@ -1,0 +1,72 @@
+[
+  {
+    "pedido": "P101",
+    "planta": "P",
+    "cliente": "Inversiones Demo 2000",
+    "tipoProducto": "Maxipanel",
+    "fechaProgramada": "7/21/2026",
+    "statusFabricacion": "Fabricado y entregado",
+    "statusMontaje": "",
+    "fechaCulminacion": "7/25/2026",
+    "situacion": "Pagado",
+    "observaciones": "Facturado 10021",
+    "etapaFabricacion": "terminado",
+    "etapaMontaje": "sin_dato"
+  },
+  {
+    "pedido": "P102",
+    "planta": "P",
+    "cliente": "Constructora Maracaibo C.A.",
+    "tipoProducto": "R-97 Curvo",
+    "fechaProgramada": "9/4/2026",
+    "statusFabricacion": "sin fabricar",
+    "statusMontaje": "",
+    "fechaCulminacion": "",
+    "situacion": "",
+    "observaciones": "Pendiente de abono inicial",
+    "etapaFabricacion": "sin_iniciar",
+    "etapaMontaje": "sin_dato"
+  },
+  {
+    "pedido": "S201",
+    "planta": "S",
+    "cliente": "Taller Demo Valencia",
+    "tipoProducto": "AASS Techo",
+    "fechaProgramada": "8/10/2026",
+    "statusFabricacion": "100%",
+    "statusMontaje": "Instalando",
+    "fechaCulminacion": "",
+    "situacion": "Anticipo 40%",
+    "observaciones": "",
+    "etapaFabricacion": "terminado",
+    "etapaMontaje": "en_curso"
+  },
+  {
+    "pedido": "S202",
+    "planta": "S",
+    "cliente": "Inversiones Demo 2000",
+    "tipoProducto": "Standing Seam",
+    "fechaProgramada": "9/20/2026",
+    "statusFabricacion": "40%",
+    "statusMontaje": "",
+    "fechaCulminacion": "",
+    "situacion": "Inicial",
+    "observaciones": "",
+    "etapaFabricacion": "en_curso",
+    "etapaMontaje": "sin_dato"
+  },
+  {
+    "pedido": "V301",
+    "planta": "V",
+    "cliente": "Depósito Carabobo",
+    "tipoProducto": "Flashings",
+    "fechaProgramada": "7/30/2026",
+    "statusFabricacion": "Fabricado y entregado",
+    "statusMontaje": "Terminado",
+    "fechaCulminacion": "8/2/2026",
+    "situacion": "Pagado",
+    "observaciones": "Facturado 10033",
+    "etapaFabricacion": "terminado",
+    "etapaMontaje": "terminado"
+  }
+]

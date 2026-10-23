@@ -9,8 +9,9 @@ const WebAuth = (() => {
   let access = null; // { token, expiresAt, email }
 
   // Mismo scope que la app de escritorio + email para identificar la cuenta. Con escritura
-  // (no solo .readonly) para poder pasar cotizaciones a Pedidos (puente con Centrolit Gestión).
-  const SCOPES = 'openid email https://www.googleapis.com/auth/spreadsheets';
+  // (no solo .readonly) para poder registrar ofertas en Pedidos con "Pasar a pedido", y con
+  // drive.readonly para leer STATUS PEDIDOS.xlsx (fichero real del equipo, no un Sheet nuestro).
+  const SCOPES = 'openid email https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.readonly';
 
   function isConfigured() {
     return !!window.CENTROLIT_WEB_CONFIG?.googleClientId;

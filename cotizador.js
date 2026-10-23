@@ -195,7 +195,7 @@ const Cotizador = (() => {
     </div>
     <div class="hint">Guardado solo en este equipo (ver "Plano del cliente" arriba). Permite reabrir y seguir editando una oferta más tarde.</div>
     <div class="btnrow"><button class="btn" data-act="pasar-a-pedido">📦 Pasar a pedido</button></div>
-    <div class="hint">Envía esta oferta a Centrolit Gestión como pedido pendiente de registrar (el código P/S/V y el resto de la ficha los completa el equipo allá).</div>`;
+    <div class="hint">Registra esta oferta como pedido en la pestaña "Pedidos", para seguimiento del equipo.</div>`;
   }
 
   function docHtml() {
@@ -1026,7 +1026,7 @@ const Cotizador = (() => {
     return true;
   }
 
-  // ---------- Pasar a pedido (puente con Centrolit Gestión) ----------
+  // ---------- Pasar a pedido ----------
   const PLANTA_POR_CATEGORIA = { 'Standing Seam': 'S', 'Paneles y Láminas': 'P' };
 
   async function pasarAPedido() {
@@ -1056,7 +1056,7 @@ const Cotizador = (() => {
     try {
       if (window.centrolit) await window.centrolit.pasarAPedido(registro);
       else await WebData.pasarAPedido(registro, S.pedidosFileId, 'Pedidos', S.demo);
-      toast('Oferta enviada como pedido pendiente a Centrolit Gestión.');
+      toast('Oferta registrada como pedido.');
     } catch (e) {
       toast('No se pudo pasar a pedido: ' + e.message, 'error');
     }

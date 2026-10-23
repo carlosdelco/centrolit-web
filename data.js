@@ -42,7 +42,10 @@ const WebData = (() => {
       const [areas, hist] = await Promise.all([fetch('demo/areas.json').then((r) => r.json()), fetch('demo/historial.json').then((r) => r.json())]);
       return { areas, historial: hist.historial };
     }
-    if (kind === 'pedidos') return fetch('demo/pedidos.json').then((r) => r.json());
+    if (kind === 'pedidos') {
+      const [bridge, real] = await Promise.all([fetch('demo/pedidos.json').then((r) => r.json()), fetch('demo/status-pedidos.json').then((r) => r.json())]);
+      return { bridge, real };
+    }
     return fetch('demo/precios.json').then((r) => r.json());
   }
 
@@ -77,25 +80,58 @@ const WebData = (() => {
   const getKpis = (opts) => cargar('kpis', opts);
   const getPrecios = (opts) => cargar('precios', opts);
 
-  // Puente Cotizador -> Centrolit Gestión (ver src/main/pedidos-service.js: mismo esquema de
-  // columnas, mismo criterio — nunca se escribe directo en la base de datos de Gestión).
+  // Registro de Pedidos (mismo esquema de columnas que src/main/pedidos-service.js).
   const COLUMNAS_PEDIDO = [
     'fechaCreacion', 'origenOferta', 'plantaSugerida', 'cliente', 'rifCliente',
     'telefonoContacto', 'correoContacto', 'direccionFiscal', 'direccionObra', 'ciudadObra',
     'tipoObra', 'formaPago', 'montoTotalUsd', 'incluyeMontaje', 'incluyeFlete',
     'resumenMaterial', 'comentarios', 'registradoPor', 'estadoImportacion',
   ];
-  async function getPedidos(fileId, tab, demoMode) {
+  async function leerBridge(fileId, tab, token) {
+    if (!fileId) return [];
+    const raw = await readTabs(fileId, [tab || 'Pedidos'], token);
+    return Parsers.tabla(raw[tab || 'Pedidos']).map((f, i) => ({ fila: i + 2, ...f }));
+  }
+
+  // STATUS PEDIDOS.xlsx: fichero real del equipo en Drive, no un Sheet nuestro — se descarga con
+  // Drive API (alt=media) y se parsea con ExcelJS (vendor/exceljs.min.js, global `ExcelJS`).
+  async function xlsxAFilas(arrayBuffer) {
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(arrayBuffer);
+    const ws = wb.worksheets[0];
+    if (!ws) return [];
+    const filas = [];
+    ws.eachRow({ includeEmpty: false }, (row) => {
+      const vals = row.values.slice(1); // ExcelJS: índice 0 vacío
+      filas.push(vals.map((c) => (c && typeof c === 'object' && 'text' in c ? c.text : c ?? '')));
+    });
+    return filas;
+  }
+
+  async function leerReal(fileId, token) {
+    if (!fileId) return [];
+    const r = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      const e = new Error(j.error?.message || `HTTP ${r.status}`);
+      e.status = r.status;
+      throw e;
+    }
+    return Parsers.parseStatusPedidos(await xlsxAFilas(await r.arrayBuffer()));
+  }
+
+  // data = { bridge: [...registrado desde el Cotizador], real: [...STATUS PEDIDOS.xlsx] }.
+  async function getPedidos(fileId, statusFileId, tab, demoMode) {
     if (demoMode) return { ok: true, data: await demo('pedidos'), source: 'demo' };
-    if (!fileId) return { ok: false, code: 'sin_fichero', error: 'Falta configurar el fichero de Pedidos (Ajustes).' };
+    if (!fileId && !statusFileId) return { ok: false, code: 'sin_fichero', error: 'Falta configurar los ficheros de Pedidos (Ajustes).' };
     if (!WebAuth.current()) return { ok: false, code: 'no_session', error: 'Inicia sesión con tu cuenta de Google.' };
     try {
       const token = await WebAuth.getAccessToken();
-      const raw = await readTabs(fileId, [tab || 'Pedidos'], token);
-      const filas = Parsers.tabla(raw[tab || 'Pedidos']).map((f, i) => ({ fila: i + 2, ...f }));
-      return { ok: true, data: filas };
+      const [bridge, real] = await Promise.all([leerBridge(fileId, tab, token), leerReal(statusFileId, token)]);
+      return { ok: true, data: { bridge, real }, fetchedAt: new Date().toISOString(), source: 'google' };
     } catch (e) {
-      if (e.status === 403 || e.status === 404) return { ok: false, code: 'sin_acceso', error: 'Tu cuenta de Google no tiene acceso a este fichero.' };
+      if (e.code === 'no_session') return { ok: false, code: 'no_session', error: e.message };
+      if (e.status === 403 || e.status === 404) return { ok: false, code: 'sin_acceso', error: 'Tu cuenta de Google no tiene acceso a alguno de los ficheros de Pedidos.' };
       return { ok: false, code: 'error', error: e.message };
     }
   }

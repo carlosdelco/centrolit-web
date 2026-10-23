@@ -37,6 +37,19 @@ function estadoDatos(res, etiqueta) {
   return `<span class="pill ok">${esc(etiqueta)} actualizados: ${esc(cuando)}</span>`;
 }
 
+// Compartido por Pedidos/Clientes/Producción (ver pedidos-service.js > parseStatusPedidos).
+const PLANTAS = { P: 'Paneles', S: 'Centrolam', V: 'Varios' };
+const ETAPAS = {
+  terminado: { l: 'Terminado', c: 'ok' },
+  en_curso: { l: 'En curso', c: 'amber' },
+  sin_iniciar: { l: 'Sin iniciar', c: 'red' },
+  sin_dato: { l: 'Sin dato', c: 'muted' },
+};
+const pillEtapa = (etapa) => {
+  const e = ETAPAS[etapa] || ETAPAS.sin_dato;
+  return `<span class="pill ${e.c}">${esc(e.l)}</span>`;
+};
+
 // Mensaje estándar para errores de carga de datos.
 function bloqueError(res, accionRefrescar) {
   const msgs = {

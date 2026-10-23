@@ -203,7 +203,7 @@ table.hist td{padding:8px 10px;border-bottom:1px solid var(--border);}
   .doc-foot{padding:8px 20px;margin-top:10px;font-size:9px;}
 }
 
-/* ---------- Pedidos (puente con Centrolit Gestión) ---------- */
+/* ---------- Pedidos ---------- */
 .stats-ped{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
 .stat-ped{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
 .stat-ped .n{font-family:var(--serif);font-weight:bold;font-size:28px;color:var(--navy);line-height:1.1;}
@@ -220,6 +220,22 @@ table.tabla-ped tr[data-i]{cursor:pointer;}
 table.tabla-ped tr[data-i]:hover td{background:var(--surface-2);}
 table.tabla-ped td.mono{font-family:var(--mono);font-size:12.5px;}
 .tag-planta{display:inline-block;background:var(--surface-2);color:var(--navy);font-weight:bold;font-size:11.5px;padding:2px 8px;border-radius:5px;}
-#detallePedido .doc-info{padding:0;font-size:13px;}
+#detallePedido .doc-info, #detalleCliente .doc-info, #detalleProd .doc-info{padding:0;font-size:13px;}
+.pill.muted{background:var(--surface-2);color:var(--muted);}
+
+/* ---------- Producción (tablero de estado, no Gantt) ---------- */
+.board-prod{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+.board-col{background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:10px;min-width:0;}
+.board-col-h{font-weight:bold;font-size:13px;color:var(--navy);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
+.board-col-h .n{background:var(--navy);color:#fff;border-radius:20px;padding:1px 9px;font-size:11.5px;}
+.board-col-body{display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow:auto;}
+.prod-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 11px;cursor:pointer;font-size:12.5px;}
+.prod-card:hover{border-color:var(--navy-mid);}
+.prod-card-top{display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:12px;margin-bottom:3px;}
+.prod-card-cliente{font-weight:bold;}
+.prod-card-prod{color:var(--muted);}
+.prod-card-status{margin-top:4px;font-size:11.5px;color:var(--brown);}
+
+@media (max-width: 860px){ .board-prod{grid-template-columns:1fr;} }
 
 [hidden]{display:none !important;}
