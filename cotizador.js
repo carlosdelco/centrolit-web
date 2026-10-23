@@ -193,7 +193,9 @@ const Cotizador = (() => {
       <button class="btn" data-act="guardar-oferta">💾 Guardar oferta</button>
       <button class="btn" data-act="ofertas-guardadas">📂 Ofertas guardadas</button>
     </div>
-    <div class="hint">Guardado solo en este equipo (ver "Plano del cliente" arriba). Permite reabrir y seguir editando una oferta más tarde.</div>`;
+    <div class="hint">Guardado solo en este equipo (ver "Plano del cliente" arriba). Permite reabrir y seguir editando una oferta más tarde.</div>
+    <div class="btnrow"><button class="btn" data-act="pasar-a-pedido">📦 Pasar a pedido</button></div>
+    <div class="hint">Envía esta oferta a Centrolit Gestión como pedido pendiente de registrar (el código P/S/V y el resto de la ficha los completa el equipo allá).</div>`;
   }
 
   function docHtml() {
@@ -228,7 +230,7 @@ const Cotizador = (() => {
   // ---------- Montaje / UI ----------
   // logoSrc: ruta del logo relativa a la página que llama (escritorio y web sirven los
   // mismos ficheros desde carpetas distintas, por eso no se puede hardcodear aquí).
-  function mount(container, { precios, acceso, empresa, logoSrc }) {
+  function mount(container, { precios, acceso, empresa, logoSrc, email, pedidosFileId, demo }) {
     const previo = root ? snapshot() : null;
     root = container;
     const d = precios.data;
@@ -239,6 +241,9 @@ const Cotizador = (() => {
     puedeInterna = !!acceso?.visible;
     S.empresa = empresa || {};
     S.logoSrc = logoSrc || '../../assets/logo.png';
+    S.email = email || '';
+    S.pedidosFileId = pedidosFileId || '';
+    S.demo = !!demo;
 
     root.innerHTML = `<div class="cot-grid">
       <div class="cot-form">${formHtml()}</div>
@@ -513,6 +518,7 @@ const Cotizador = (() => {
       if (act === 'xlsx') exportarExcel();
       if (act === 'guardar-oferta') guardarOferta();
       if (act === 'ofertas-guardadas') abrirPanelOfertas();
+      if (act === 'pasar-a-pedido') pasarAPedido();
     });
   }
 
@@ -1018,6 +1024,42 @@ const Cotizador = (() => {
     if (window.centrolit) return window.centrolit.ofertasEliminar(id);
     lsEscribirOfertas(lsLeerOfertas().filter((x) => x.id !== id));
     return true;
+  }
+
+  // ---------- Pasar a pedido (puente con Centrolit Gestión) ----------
+  const PLANTA_POR_CATEGORIA = { 'Standing Seam': 'S', 'Paneles y Láminas': 'P' };
+
+  async function pasarAPedido() {
+    if (!ultima) return;
+    if (ultima.precioFaltante) { toast('Hay un producto sin precio de lista confirmado — no se puede pasar a pedido.', 'error'); return; }
+    if (!ultima.cliente || ultima.cliente === '—') { toast('Falta el nombre del cliente.', 'error'); return; }
+    if (!S.pedidosFileId) { toast('Falta configurar el fichero de Pedidos (Ajustes).', 'error'); return; }
+    const registro = {
+      origenOferta: ultima.docNum || val('numOferta') || '',
+      plantaSugerida: ultima.secciones ? '' : (PLANTA_POR_CATEGORIA[ultima.catLabel] || 'V'),
+      cliente: ultima.cliente,
+      rifCliente: ultima.clienteRif || '',
+      telefonoContacto: ultima.contactoTelefono || '',
+      correoContacto: ultima.contactoCorreo || '',
+      direccionFiscal: ultima.direccionFiscal || '',
+      direccionObra: ultima.direccionEntrega || '',
+      ciudadObra: ultima.ubicacion && ultima.ubicacion !== '—' ? ultima.ubicacion : '',
+      tipoObra: ultima.tipoObra && ultima.tipoObra !== '—' ? ultima.tipoObra : '',
+      formaPago: ultima.pago || '',
+      montoTotalUsd: Math.round(ultima.total * 100) / 100,
+      incluyeMontaje: ultima.incluirMontaje ? 'Sí' : 'No',
+      incluyeFlete: ultima.incluirFlete ? 'Sí' : 'No',
+      resumenMaterial: ultima.secciones ? ultima.secciones.map((s) => s.nombre).join(' + ') : ultima.productoNombre,
+      comentarios: ultima.comentarios || '',
+      registradoPor: S.email || '',
+    };
+    try {
+      if (window.centrolit) await window.centrolit.pasarAPedido(registro);
+      else await WebData.pasarAPedido(registro, S.pedidosFileId, 'Pedidos', S.demo);
+      toast('Oferta enviada como pedido pendiente a Centrolit Gestión.');
+    } catch (e) {
+      toast('No se pudo pasar a pedido: ' + e.message, 'error');
+    }
   }
 
   async function guardarOferta() {

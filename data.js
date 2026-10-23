@@ -42,6 +42,7 @@ const WebData = (() => {
       const [areas, hist] = await Promise.all([fetch('demo/areas.json').then((r) => r.json()), fetch('demo/historial.json').then((r) => r.json())]);
       return { areas, historial: hist.historial };
     }
+    if (kind === 'pedidos') return fetch('demo/pedidos.json').then((r) => r.json());
     return fetch('demo/precios.json').then((r) => r.json());
   }
 
@@ -76,6 +77,48 @@ const WebData = (() => {
   const getKpis = (opts) => cargar('kpis', opts);
   const getPrecios = (opts) => cargar('precios', opts);
 
+  // Puente Cotizador -> Centrolit Gestión (ver src/main/pedidos-service.js: mismo esquema de
+  // columnas, mismo criterio — nunca se escribe directo en la base de datos de Gestión).
+  const COLUMNAS_PEDIDO = [
+    'fechaCreacion', 'origenOferta', 'plantaSugerida', 'cliente', 'rifCliente',
+    'telefonoContacto', 'correoContacto', 'direccionFiscal', 'direccionObra', 'ciudadObra',
+    'tipoObra', 'formaPago', 'montoTotalUsd', 'incluyeMontaje', 'incluyeFlete',
+    'resumenMaterial', 'comentarios', 'registradoPor', 'estadoImportacion',
+  ];
+  async function getPedidos(fileId, tab, demoMode) {
+    if (demoMode) return { ok: true, data: await demo('pedidos'), source: 'demo' };
+    if (!fileId) return { ok: false, code: 'sin_fichero', error: 'Falta configurar el fichero de Pedidos (Ajustes).' };
+    if (!WebAuth.current()) return { ok: false, code: 'no_session', error: 'Inicia sesión con tu cuenta de Google.' };
+    try {
+      const token = await WebAuth.getAccessToken();
+      const raw = await readTabs(fileId, [tab || 'Pedidos'], token);
+      const filas = Parsers.tabla(raw[tab || 'Pedidos']).map((f, i) => ({ fila: i + 2, ...f }));
+      return { ok: true, data: filas };
+    } catch (e) {
+      if (e.status === 403 || e.status === 404) return { ok: false, code: 'sin_acceso', error: 'Tu cuenta de Google no tiene acceso a este fichero.' };
+      return { ok: false, code: 'error', error: e.message };
+    }
+  }
+
+  async function pasarAPedido(registro, fileId, tab, demoMode) {
+    if (demoMode) throw new Error('No disponible en modo demo — inicia sesión con una cuenta real de Google.');
+    if (!fileId) throw new Error('Falta configurar el fichero de Pedidos (Ajustes).');
+    const token = await WebAuth.getAccessToken();
+    const fila = { ...registro, fechaCreacion: new Date().toISOString(), estadoImportacion: 'pendiente' };
+    const valores = COLUMNAS_PEDIDO.map((c) => fila[c] ?? '');
+    const qs = new URLSearchParams({ valueInputOption: 'RAW', insertDataOption: 'INSERT_ROWS' });
+    const r = await fetch(`${SHEETS_BASE}/${encodeURIComponent(fileId)}/values/${encodeURIComponent(tab || 'Pedidos')}:append?${qs}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [valores] }),
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      throw new Error(j.error?.message || `HTTP ${r.status}`);
+    }
+    return { ok: true };
+  }
+
   // Igual que data-service.js (escritorio): intenta abrir el fichero; 403/404 = sin acceso = el
   // Cuadro de Mando se oculta. Esto es lo único que decide si el módulo aparece.
   async function accesoKpis(fileId, demoMode) {
@@ -93,5 +136,5 @@ const WebData = (() => {
     }
   }
 
-  return { getKpis, getPrecios, accesoKpis };
+  return { getKpis, getPrecios, accesoKpis, pasarAPedido, getPedidos };
 })();

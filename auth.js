@@ -8,8 +8,9 @@ const WebAuth = (() => {
   let tokenClient = null;
   let access = null; // { token, expiresAt, email }
 
-  // Mismo scope de solo lectura que la app de escritorio + email para identificar la cuenta.
-  const SCOPES = 'openid email https://www.googleapis.com/auth/spreadsheets.readonly';
+  // Mismo scope que la app de escritorio + email para identificar la cuenta. Con escritura
+  // (no solo .readonly) para poder pasar cotizaciones a Pedidos (puente con Centrolit Gestión).
+  const SCOPES = 'openid email https://www.googleapis.com/auth/spreadsheets';
 
   function isConfigured() {
     return !!window.CENTROLIT_WEB_CONFIG?.googleClientId;
