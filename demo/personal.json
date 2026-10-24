@@ -1,0 +1,7 @@
+[
+  { "nombre": "Ana", "apellido": "Demo", "cargo": "Sup de Obra" },
+  { "nombre": "Luis", "apellido": "Ejemplo", "cargo": "Supervisor/instalador" },
+  { "nombre": "Pedro", "apellido": "Muestra", "cargo": "Instalador" },
+  { "nombre": "Marta", "apellido": "Prueba", "cargo": "Instalador" },
+  { "nombre": "Jose", "apellido": "Ficticio", "cargo": "Operador de máquina" }
+]

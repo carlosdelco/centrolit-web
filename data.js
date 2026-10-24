@@ -46,6 +46,7 @@ const WebData = (() => {
       const [bridge, real] = await Promise.all([fetch('demo/pedidos.json').then((r) => r.json()), fetch('demo/status-pedidos.json').then((r) => r.json())]);
       return { bridge, real };
     }
+    if (kind === 'personal') return fetch('demo/personal.json').then((r) => r.json());
     return fetch('demo/precios.json').then((r) => r.json());
   }
 
@@ -59,6 +60,13 @@ const WebData = (() => {
 
     try {
       const token = await WebAuth.getAccessToken();
+      if (kind === 'personal') {
+        const tab = 'Personal';
+        const raw = await readTabs(fileId, [tab], token);
+        const data = Parsers.parsePersonal(raw[tab]);
+        writeCache(kind, data);
+        return { ok: true, data, fetchedAt: new Date().toISOString(), source: 'google' };
+      }
       const tabs = kind === 'kpis' ? HOJAS_KPIS : HOJAS_PRECIOS;
       const names = Object.values(tabs);
       const raw = await readTabs(fileId, names, token);
@@ -79,6 +87,7 @@ const WebData = (() => {
 
   const getKpis = (opts) => cargar('kpis', opts);
   const getPrecios = (opts) => cargar('precios', opts);
+  const getPersonal = (opts) => cargar('personal', opts);
 
   // Registro de Pedidos (mismo esquema de columnas que src/main/pedidos-service.js).
   const COLUMNAS_PEDIDO = [
@@ -172,5 +181,5 @@ const WebData = (() => {
     }
   }
 
-  return { getKpis, getPrecios, accesoKpis, pasarAPedido, getPedidos };
+  return { getKpis, getPrecios, getPersonal, accesoKpis, pasarAPedido, getPedidos };
 })();
