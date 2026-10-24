@@ -1,7 +1,7 @@
 [
-  { "nombre": "Ana", "apellido": "Demo", "cargo": "Sup de Obra" },
-  { "nombre": "Luis", "apellido": "Ejemplo", "cargo": "Supervisor/instalador" },
-  { "nombre": "Pedro", "apellido": "Muestra", "cargo": "Instalador" },
-  { "nombre": "Marta", "apellido": "Prueba", "cargo": "Instalador" },
-  { "nombre": "Jose", "apellido": "Ficticio", "cargo": "Operador de máquina" }
+  { "nombre": "Ana Demo", "cargo": "Vendedor", "sede": "Centrolit", "telefono": "0412 0000001" },
+  { "nombre": "Luis Ejemplo", "cargo": "Supervisor", "sede": "Centrolam", "telefono": "0412 0000002" },
+  { "nombre": "Pedro Muestra", "cargo": "Administrador", "sede": "Centrolit", "telefono": "0412 0000003" },
+  { "nombre": "Marta Prueba", "cargo": "Operador", "sede": "Centrolam", "telefono": "0412 0000004" },
+  { "nombre": "Jose Ficticio", "cargo": "Instalador", "sede": "", "telefono": "" }
 ]

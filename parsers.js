@@ -118,15 +118,17 @@ function parseFijaciones(rows) {
     }));
 }
 
-// Listado de personal (nombre + cargo, sin cédula ni dirección — ver docs/HOJAS-GOOGLE.md > 5:
-// el fichero real del equipo trae datos personales sensibles que no se cargan aquí).
+// Listado de personal (nombre + cargo + sede + teléfono, sin cédula ni dirección — ver
+// docs/HOJAS-GOOGLE.md > 5: el fichero real del equipo trae datos personales sensibles que no se
+// cargan aquí).
 function parsePersonal(rows) {
   return tabla(rows)
     .filter((f) => f.nombre)
     .map((f) => ({
       nombre: String(f.nombre).trim(),
-      apellido: String(f.apellido ?? '').trim(),
       cargo: String(f.cargo ?? '').trim(),
+      sede: String(f.sede ?? '').trim(),
+      telefono: String(f.telefono ?? '').trim(),
     }));
 }
 

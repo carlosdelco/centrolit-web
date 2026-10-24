@@ -1,6 +1,6 @@
 'use strict';
-// Personal: listado de nombre + cargo (sin cédula ni dirección — datos sensibles que no se
-// cargan en la app, ver docs/HOJAS-GOOGLE.md > 5). Solo lectura.
+// Personal: listado de nombre + cargo + sede + teléfono (sin cédula ni dirección — datos
+// sensibles que no se cargan en la app, ver docs/HOJAS-GOOGLE.md > 5). Solo lectura.
 
 const Personal = (() => {
   let root, filas = [];
@@ -9,7 +9,7 @@ const Personal = (() => {
   function coincide(f) {
     if (!q) return true;
     const t = q.toLowerCase();
-    return [f.nombre, f.apellido, f.cargo].some((v) => (v || '').toLowerCase().includes(t));
+    return [f.nombre, f.cargo, f.sede].some((v) => (v || '').toLowerCase().includes(t));
   }
 
   function pintar() {
@@ -29,7 +29,7 @@ const Personal = (() => {
         <div class="card" style="margin-bottom:12px">
           <h2 style="font-size:15px"><span class="dot"></span>${esc(cargo)} <span class="hint" style="display:inline">(${gente.length})</span></h2>
           <ul style="margin:8px 0 0;padding-left:18px">
-            ${gente.map((p) => `<li>${esc(p.nombre)} ${esc(p.apellido)}</li>`).join('')}
+            ${gente.map((p) => `<li>${esc(p.nombre)}${p.sede ? ' <span class="hint" style="display:inline">· ' + esc(p.sede) + '</span>' : ''}${p.telefono ? ' <span class="hint" style="display:inline">· ' + esc(p.telefono) + '</span>' : ''}</li>`).join('')}
           </ul>
         </div>`).join('') : '<div class="empty-state" style="margin:30px auto"><b>Sin personal</b><p>No hay nadie que coincida con la búsqueda.</p></div>'}`;
   }
