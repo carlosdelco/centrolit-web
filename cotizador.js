@@ -1249,5 +1249,21 @@ const Cotizador = (() => {
     document.body.appendChild(overlay);
   }
 
-  return { mount };
+  // Puente con la Calculadora de láminas/correas: aplica sus totales al ítem único (área y
+  // cantidad manual de tornillos) — no toca modo secciones, el usuario decide si lo desactiva.
+  function aplicarCalculoExterno({ areaM2, tornillosCant }) {
+    if (!root) return;
+    if (chk('incluirSecciones')) { toast('Desactiva "Cotizar por secciones" para aplicar el cálculo de la Calculadora.', 'error'); return; }
+    S.modo = 'm2';
+    marcar('medidaToggle', 'm2');
+    $('areaDirectaBox').hidden = false;
+    $('areaMlBox').hidden = true;
+    $('area').value = Math.round(areaM2 * 100) / 100;
+    $('tornillosManualChk').checked = true;
+    toggleBox('tornillosManualChk');
+    $('tornillosCantManual').value = Math.round(tornillosCant);
+    calcular();
+  }
+
+  return { mount, aplicarCalculoExterno };
 })();

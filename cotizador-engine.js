@@ -243,5 +243,31 @@
     return 'red';
   }
 
-  return { calcularOferta, precioM2Lista, semaforo };
+  // Hoja de cálculo manual de láminas/correas (Standing Seam / Centrolam SSA) — réplica de la
+  // pestaña real "Calculo SSA" que ya usa el equipo. Confirmado con el equipo comercial: Cant Lam,
+  // Correas y Tornillos se llenan a mano (varía por obra, sin fórmula fija en ningún caso real
+  // revisado) — el motor solo suma los totales, igual que hacen sus propias fórmulas SUM().
+  // m2 por fila sí se calcula (largo × fondo es geometría, no criterio estructural).
+  function calcularLaminas(filas) {
+    const rows = (Array.isArray(filas) ? filas : []).map((f) => {
+      const largoLam = n(f.largoLam);
+      const fondo = n(f.fondo);
+      return {
+        nombre: f.nombre || '',
+        largoLam, fondo,
+        m2: +(largoLam * fondo).toFixed(4),
+        cantLam: n(f.cantLam),
+        correas: n(f.correas),
+        tornillos: n(f.tornillos),
+      };
+    });
+    return {
+      filas: rows,
+      totalM2: rows.reduce((a, r) => a + r.m2, 0),
+      totalLam: rows.reduce((a, r) => a + r.cantLam, 0),
+      totalTornillos: rows.reduce((a, r) => a + r.tornillos, 0),
+    };
+  }
+
+  return { calcularOferta, precioM2Lista, semaforo, calcularLaminas };
 });
