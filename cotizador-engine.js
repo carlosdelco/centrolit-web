@@ -36,7 +36,12 @@
     const materialImporte = areaConDesp * precioM2;
 
     // Los tornillos se cuentan sobre el área neta (sin desperdicio), como en el cotizador original.
-    const tornillosCant = Math.ceil(area * tornillosPorM2);
+    // Cantidad manual: la cuadrilla a veces sabe la cantidad exacta por la estructura (no siempre
+    // proporcional al área), así que puede fijarse directo en vez de derivarla de la tasa/m².
+    const tornillosCantManual = it.tornillosCantManual;
+    const tornillosCant = tornillosCantManual != null && tornillosCantManual !== ''
+      ? Math.max(0, Math.round(n(tornillosCantManual)))
+      : Math.ceil(area * tornillosPorM2);
     const tornilloPrecio = man ? n(man.tornillo) : p.tornillo[pago];
     const tornillosImporte = tornillosCant * tornilloPrecio;
 
@@ -108,11 +113,15 @@
   /**
    * @param {object} i  Entradas del formulario
    *   producto {n, ancho, efectivo, bcv}, pago 'efectivo'|'bcv', area (m²), desperdicioPct,
-   *   tornillosPorM2, rematesMl, ivaPct, tasaBcv,
+   *   tornillosPorM2, tornillosCantManual (opcional, sustituye area×tornillosPorM2 — cantidad real
+   *   por estructura, no siempre proporcional al área), rematesMl, ivaPct, tasaBcv,
    *   preciosManuales: null | {material, tornillo, remate}
    *   secciones: null | [{nombre, producto, pago, area, desperdicioPct, tornillosPorM2, rematesMl,
    *     preciosManuales}] — techo a varias aguas, o varios techos/pantallas cotizados juntos;
    *     cuando viene informado sustituye a producto/area/rematesMl de arriba (punto 3 del feedback).
+   *   partidas: null | [{descripcion, cantidad, unidad, precioUnit, costoUnit}] — líneas manuales
+   *     para lo que no encaja en m²/ml (extractores eólicos, un tornillo puntual, un flashing fuera
+   *     de catálogo...). Se suman al subtotal y, si hay margen activo, aparecen en margenData.filas.
    *   montaje: {incluir, m2, ml, diasGrua, precioGruaDia, andamios, supervisor}, flete: {incluir, monto},
    *   margen: null | {costoMaterial, costoTornillo, costoRemate, costoOtros}
    * @param {object} p  Parámetros de la lista de precios
@@ -127,7 +136,7 @@
     const multi = Array.isArray(i.secciones) && i.secciones.length > 0;
     const base = multi
       ? sumarSecciones(i.secciones.map((s) => ({ ...s, pago: s.pago || pago, preciosManuales: s.preciosManuales || man })), p)
-      : calcularItem({ producto: i.producto, pago, area: i.area, desperdicioPct: i.desperdicioPct, tornillosPorM2: i.tornillosPorM2, rematesMl: i.rematesMl, rematesDetalle: i.rematesDetalle, preciosManuales: man }, p);
+      : calcularItem({ producto: i.producto, pago, area: i.area, desperdicioPct: i.desperdicioPct, tornillosPorM2: i.tornillosPorM2, tornillosCantManual: i.tornillosCantManual, rematesMl: i.rematesMl, rematesDetalle: i.rematesDetalle, preciosManuales: man }, p);
 
     const { area, desperdicioPct, areaConDesp, precioM2, materialImporte, precioFaltante, tornillosPorM2, tornillosCant, tornilloPrecio, tornillosImporte, rematesMl, piezasRemate, rematesMlFacturable, rematePrecio, rematesImporte, rematesDetalle } = base;
     const secciones = multi ? base.secciones : null;
@@ -149,7 +158,22 @@
       : 0;
     const fleteImporte = incluirFlete ? precioFlete : 0;
 
-    const subtotal = materialImporte + tornillosImporte + rematesImporte + montajeImporte + fleteImporte;
+    // Partidas adicionales: líneas manuales (cantidad × precio) para lo que no encaja en m²/ml —
+    // extractores eólicos, un tipo de tornillo distinto para una conexión puntual, un flashing que
+    // todavía no está en el catálogo, etc. (punto 2/3 del feedback comercial de audio).
+    const partidas = (Array.isArray(i.partidas) ? i.partidas : [])
+      .filter((x) => n(x.cantidad) > 0)
+      .map((x) => ({
+        descripcion: String(x.descripcion || '').trim(),
+        cantidad: n(x.cantidad),
+        unidad: String(x.unidad || '').trim(),
+        precioUnit: n(x.precioUnit),
+        costoUnit: n(x.costoUnit),
+        importe: n(x.cantidad) * n(x.precioUnit),
+      }));
+    const partidasImporte = partidas.reduce((a, x) => a + x.importe, 0);
+
+    const subtotal = materialImporte + tornillosImporte + rematesImporte + montajeImporte + fleteImporte + partidasImporte;
     const iva = (subtotal * ivaPct) / 100;
     const total = subtotal + iva;
     const totalBs = tasaBcv > 0 ? total * tasaBcv : null;
@@ -162,6 +186,7 @@
       incluirMontaje, precioMontajeM2, precioMontajeMl, montajeImporte,
       diasGrua, precioGruaDia, gruaImporte, andamios, supervisor,
       incluirFlete, precioFlete, fleteImporte,
+      partidas, partidasImporte,
       subtotal, ivaPct, iva, total, tasaBcv, totalBs,
       incluirMargen: !!i.margen,
       margenData: null,
@@ -175,7 +200,8 @@
       const costoMaterialImporte = areaConDesp * cm;
       const costoTornillosImporte = tornillosCant * ct;
       const costoRematesImporte = rematesMlFacturable * cr;
-      const costoTotal = costoMaterialImporte + costoTornillosImporte + costoRematesImporte + costoOtros;
+      const costoPartidasImporte = partidas.reduce((a, x) => a + x.cantidad * x.costoUnit, 0);
+      const costoTotal = costoMaterialImporte + costoTornillosImporte + costoRematesImporte + costoOtros + costoPartidasImporte;
       const margenUSD = subtotal - costoTotal;
       // Margen bruto = ganancia / venta.  Markup = ganancia / costo.  Son métricas distintas.
       const margenPct = subtotal > 0 ? (margenUSD / subtotal) * 100 : 0;
@@ -198,6 +224,9 @@
       const ventaMontajeFlete = montajeImporte + fleteImporte;
       if (costoOtros > 0 || ventaMontajeFlete > 0) {
         filas.push(fila('Montaje / Flete (venta vs. costo real)', ventaMontajeFlete, costoOtros));
+      }
+      for (const x of partidas) {
+        filas.push(fila(x.descripcion || 'Partida adicional', x.importe, x.cantidad * x.costoUnit));
       }
       r.margenData = { filas, subtotal, costoTotal, margenUSD, margenPct, markupPct };
     }

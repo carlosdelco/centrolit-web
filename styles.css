@@ -81,6 +81,9 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--green);outline-o
 .seccion-row-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
 .seccion-row .toggle{max-width:160px;}
 #agregarSeccion{margin-top:10px;}
+.partida-row{margin-top:10px;padding:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;}
+.partida-row .pa-eliminar{margin-top:6px;}
+#agregarPartida{margin-top:10px;}
 tr.seccion-head-row td{background:var(--navy-mid) !important;color:#fff;font-size:11.5px;padding:6px 12px;}
 tr.seccion-subtotal-row td{background:var(--green-light) !important;color:var(--green-dark);font-weight:bold;text-align:right;}
 tr.seccion-subtotal-row td:first-child{text-align:left;}

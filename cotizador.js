@@ -6,7 +6,7 @@ const Cotizador = (() => {
   const TIPOS_OBRA_DEFECTO = ['Nave industrial / galpón', 'Centro comercial / local comercial', 'Institucional', 'Vivienda / residencial', 'Retechado', 'Otro'];
 
   let root, cat, params, textos, tiposObra, puedeInterna;
-  let S = { pago: 'efectivo', modo: 'm2', vista: 'cliente', imagen: null, plano: null, autoComentario: '', autoNumero: '', secciones: [], remateModo: 'estimado', flashingsItems: [] };
+  let S = { pago: 'efectivo', modo: 'm2', vista: 'cliente', imagen: null, plano: null, autoComentario: '', autoNumero: '', secciones: [], remateModo: 'estimado', flashingsItems: [], partidas: [] };
   let ultima = null;
 
   const $ = (id) => root.querySelector('#' + id);
@@ -102,6 +102,12 @@ const Cotizador = (() => {
         <div><label>Desperdicio (%)</label><input type="number" id="desperdicio" min="0" max="30" step="0.5"></div>
         <div><label>Tornillos / m²</label><input type="number" id="tornillos" min="0" step="0.5"></div>
       </div>
+      <div id="tornillosManualWrap">
+        <label class="chk"><input type="checkbox" id="tornillosManualChk"> Cantidad manual de tornillos (ignora el área — varía por estructura, no siempre es proporcional)</label>
+        <div class="manual-box" id="tornillosManualBox" hidden>
+          <label>Cantidad de tornillos</label><input type="number" id="tornillosCantManual" min="0" step="1" value="0">
+        </div>
+      </div>
       ${cat.fijaciones.length ? `
       <label>Fijación específica (catálogo real, opcional)</label>
       <select id="fijacionCatalogo"><option value="">— usar precio de tornillo general —</option>${cat.fijaciones.map((f, i) => `<option value="${i}">${esc(f.nombre)} — US$ ${fmt(f.efectivo)}</option>`).join('')}</select>
@@ -146,6 +152,11 @@ const Cotizador = (() => {
         <div><label>Tasa BCV (Bs/US$)</label><input type="number" id="tasabcv" placeholder="Tasa del día"></div>
       </div>
       <div class="hint">Verifica IVA y tasa BCV vigentes al cotizar.</div>
+    </div>
+
+    <div class="card"><h2><span class="dot"></span>Partidas adicionales (opcional)</h2>
+      <div class="hint">Para lo que no encaja en m²/ml: extractores eólicos, un tornillo puntual para una conexión, un flashing que todavía no está en el catálogo, etc.</div>
+      <div id="partidasLista"></div>
     </div>
 
     <div class="card"><h2><span class="dot"></span>Comentarios para el cliente</h2>
@@ -253,6 +264,7 @@ const Cotizador = (() => {
     $('categoria').innerHTML = Object.keys(cat.categorias).map((k) => `<option value="${esc(k)}">${esc(k)}</option>`).join('');
     $('tipoObra').innerHTML = tiposObra.map((t) => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
     poblarProductos();
+    renderPartidas();
 
     // Valores por defecto desde la lista de precios (solo la primera vez)
     $('desperdicio').value = params.desperdicio_defecto ?? 7;
@@ -289,8 +301,17 @@ const Cotizador = (() => {
     return cat.categorias[catN] && cat.categorias[catN][+i];
   }
 
+  // Paneles/láminas se cotizan por ml (precio de lista dividido por ancho útil), Standing Seam
+  // por m² directo (sin ancho útil) — ver docs/HOJAS-GOOGLE.md > 1. El modo de medición debe
+  // coincidir con esto siempre; dejarlo en manos del usuario era la causa real de la "confusión
+  // entre m² y ml" reportada por el equipo comercial (audio), no un error de cálculo.
+  function modoDeProducto(p) {
+    return p && p.ancho ? 'ml' : 'm2';
+  }
+
   function nuevaSeccion() {
-    return { id: 's' + Math.random().toString(36).slice(2, 8), nombre: '', pv: productosPlanos()[0]?.value || '', modo: 'm2', area: 0, mlLargo: 0, mlAncho: 0, rematesMl: 0 };
+    const pv = productosPlanos()[0]?.value || '';
+    return { id: 's' + Math.random().toString(36).slice(2, 8), nombre: '', pv, modo: modoDeProducto(productoPorValor(pv)), area: 0, mlLargo: 0, mlAncho: 0, rematesMl: 0 };
   }
 
   function renderSecciones() {
@@ -335,6 +356,31 @@ const Cotizador = (() => {
       </div>`).join('') + '<button type="button" class="link" id="agregarFlashing">+ agregar otro flashing</button>';
   }
 
+  // ---------- Partidas adicionales: líneas manuales para lo que no encaja en m²/ml ----------
+  // (extractores eólicos, un tornillo puntual para una conexión, un flashing fuera de catálogo —
+  // pedido real del equipo comercial en audio, confirmado con la cotización Nitroven SSA).
+  function nuevaPartida() {
+    return { id: 'p' + Math.random().toString(36).slice(2, 8), descripcion: '', cantidad: 0, unidad: 'unid', precioUnit: 0, costoUnit: 0 };
+  }
+  function renderPartidas() {
+    const cont = $('partidasLista');
+    if (!cont) return;
+    const conCosto = puedeInterna && chk('incluirMargen');
+    cont.innerHTML = S.partidas.map((x, idx) => `
+      <div class="partida-row" data-idx="${idx}">
+        <div class="row2">
+          <div><label>Descripción</label><input type="text" class="pa-desc" data-idx="${idx}" value="${esc(x.descripcion)}" placeholder='Extractor eólico 24&quot;'></div>
+          <div><label>Unidad</label><input type="text" class="pa-unidad" data-idx="${idx}" value="${esc(x.unidad)}" placeholder="unid"></div>
+        </div>
+        <div class="row2">
+          <div><label>Cantidad</label><input type="number" class="pa-cant" data-idx="${idx}" value="${x.cantidad || 0}" min="0" step="1"></div>
+          <div><label>Precio unitario (US$)</label><input type="number" class="pa-precio" data-idx="${idx}" value="${x.precioUnit || 0}" min="0" step="0.01"></div>
+        </div>
+        ${conCosto ? `<label>Costo unitario (US$, uso interno)</label><input type="number" class="pa-costo" data-idx="${idx}" value="${x.costoUnit || 0}" min="0" step="0.01">` : ''}
+        <button type="button" class="link pa-eliminar" data-idx="${idx}">eliminar ✕</button>
+      </div>`).join('') + '<button type="button" class="btn" id="agregarPartida">+ Agregar partida</button>';
+  }
+
   // Conserva lo escrito en el formulario cuando se refrescan los precios.
   function snapshot() {
     const s = {};
@@ -355,7 +401,7 @@ const Cotizador = (() => {
     };
     orden.forEach(set);
     Object.keys(s).filter((k) => !orden.includes(k)).forEach(set);
-    ['modPrecios', 'incluirMontaje', 'incluirFlete', 'incluirImagen', 'incluirPlano', 'incluirMargen'].forEach((id) => $(id) && toggleBox(id));
+    ['modPrecios', 'incluirMontaje', 'incluirFlete', 'incluirImagen', 'incluirPlano', 'incluirMargen', 'tornillosManualChk'].forEach((id) => $(id) && toggleBox(id));
     $('areaDirectaBox').hidden = S.modo !== 'm2';
     $('areaMlBox').hidden = S.modo !== 'ml';
     marcar('medidaToggle', S.modo);
@@ -369,7 +415,7 @@ const Cotizador = (() => {
     }
   }
 
-  const boxDe = { modPrecios: 'preciosManualBox', incluirMontaje: 'montajeBox', incluirFlete: 'fleteBox', incluirImagen: 'imagenUploadBox', incluirPlano: 'planoUploadBox', incluirMargen: 'margenBox' };
+  const boxDe = { modPrecios: 'preciosManualBox', incluirMontaje: 'montajeBox', incluirFlete: 'fleteBox', incluirImagen: 'imagenUploadBox', incluirPlano: 'planoUploadBox', incluirMargen: 'margenBox', tornillosManualChk: 'tornillosManualBox' };
   const toggleBox = (id) => { if ($(boxDe[id])) $(boxDe[id]).hidden = !chk(id); };
   const marcar = (toggleId, v) => $(toggleId).querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.v === v));
 
@@ -380,6 +426,9 @@ const Cotizador = (() => {
     $('seccionesBox').hidden = !on;
     $('remateUnicoBox').hidden = on;
     $('remateSeccionesHint').hidden = !on;
+    // Cantidad manual de tornillos es por ahora solo del ítem único, igual que desperdicio/
+    // tornillos-por-m² en modo secciones (son compartidos entre secciones, no por sección).
+    if ($('tornillosManualWrap')) $('tornillosManualWrap').hidden = on;
     if (on && S.secciones.length === 0) S.secciones.push(nuevaSeccion());
     if (on) renderSecciones();
   }
@@ -399,6 +448,13 @@ const Cotizador = (() => {
         else if (t.classList.contains('sec-largo')) s.mlLargo = t.value;
         else if (t.classList.contains('sec-ancho')) s.mlAncho = t.value;
         else if (t.classList.contains('sec-remates')) s.rematesMl = t.value;
+      } else if (idx !== undefined && S.partidas[idx]) {
+        const x = S.partidas[idx];
+        if (t.classList.contains('pa-desc')) x.descripcion = t.value;
+        else if (t.classList.contains('pa-unidad')) x.unidad = t.value;
+        else if (t.classList.contains('pa-cant')) x.cantidad = t.value;
+        else if (t.classList.contains('pa-precio')) x.precioUnit = t.value;
+        else if (t.classList.contains('pa-costo')) x.costoUnit = t.value;
       }
       calcular();
     });
@@ -407,7 +463,12 @@ const Cotizador = (() => {
       if (id === 'incluirSecciones') { toggleSecciones(); calcular(); return; }
       if (e.target.classList.contains('sec-producto')) {
         const idx = e.target.dataset.idx;
-        if (S.secciones[idx]) S.secciones[idx].pv = e.target.value;
+        const s = S.secciones[idx];
+        if (s) {
+          s.pv = e.target.value;
+          s.modo = modoDeProducto(productoPorValor(s.pv));
+          renderSecciones();
+        }
         calcular();
         return;
       }
@@ -438,7 +499,7 @@ const Cotizador = (() => {
         if (id === 'incluirMontaje' && chk(id)) precargarMontaje();
         if (id === 'incluirImagen' && !chk(id)) S.imagen = null;
         if (id === 'incluirPlano' && !chk(id)) { S.plano = null; actualizarPlanoHint(); }
-        if (id === 'incluirMargen' && !chk(id)) setVista('cliente');
+        if (id === 'incluirMargen') { if (!chk(id)) setVista('cliente'); renderPartidas(); }
       } else if (id === 'imagenInput') {
         const f = e.target.files[0];
         if (!f) { S.imagen = null; calcular(); return; }
@@ -494,6 +555,18 @@ const Cotizador = (() => {
         calcular();
         return;
       }
+      if (e.target.classList.contains('pa-eliminar')) {
+        S.partidas.splice(+e.target.dataset.idx, 1);
+        renderPartidas();
+        calcular();
+        return;
+      }
+      if (e.target.id === 'agregarPartida') {
+        S.partidas.push(nuevaPartida());
+        renderPartidas();
+        calcular();
+        return;
+      }
       const tg = e.target.closest('.toggle button');
       if (tg) {
         const box = tg.parentElement.id;
@@ -529,6 +602,13 @@ const Cotizador = (() => {
 
   function onProducto() {
     aplicarComentarioAuto();
+    const modoEsperado = modoDeProducto(productoActual());
+    if (S.modo !== modoEsperado) {
+      S.modo = modoEsperado;
+      marcar('medidaToggle', S.modo);
+      $('areaDirectaBox').hidden = S.modo !== 'm2';
+      $('areaMlBox').hidden = S.modo !== 'ml';
+    }
     if (S.modo === 'ml') { $('mlAncho').value = ''; prefillAncho(); }
     if (chk('modPrecios')) precargarManuales();
     if (chk('incluirMontaje')) precargarMontaje(true);
@@ -617,7 +697,9 @@ const Cotizador = (() => {
       : null;
     const entradas = {
       producto: multi ? null : p, pago: S.pago, area: multi ? 0 : area(),
-      desperdicioPct: val('desperdicio'), tornillosPorM2: val('tornillos'), rematesMl: multi ? 0 : val('remates'),
+      desperdicioPct: val('desperdicio'), tornillosPorM2: val('tornillos'),
+      tornillosCantManual: (!multi && chk('tornillosManualChk')) ? val('tornillosCantManual') : null,
+      rematesMl: multi ? 0 : val('remates'),
       secciones: seccionesEntrada,
       rematesDetalle,
       ivaPct: val('iva'), tasaBcv: val('tasabcv'),
@@ -629,6 +711,7 @@ const Cotizador = (() => {
       },
       flete: { incluir: chk('incluirFlete'), monto: val('precioFlete') },
       margen: margen ? { costoMaterial: val('costoMaterial'), costoTornillo: val('costoTornillo'), costoRemate: val('costoRemate'), costoOtros: val('costoOtros') } : null,
+      partidas: S.partidas,
     };
     const r = CotizadorEngine.calcularOferta(entradas, {
       tornillo: { efectivo: params.tornillo_efectivo, bcv: params.tornillo_bcv },
@@ -728,6 +811,11 @@ const Cotizador = (() => {
       filas.push(`<tr><td><strong>Flete</strong>${sub('Transporte estimado para este despacho')}</td>
         <td>Estimado caso a caso<span class="badge-est">ingresado manualmente</span></td><td class="r">—</td><td class="r">—</td><td class="r">US$ ${fmt(r.fleteImporte)}</td></tr>`);
     }
+    r.partidas.forEach((x) => {
+      filas.push(`<tr><td><strong>${esc(x.descripcion || 'Partida adicional')}</strong>${sub('Partida adicional')}</td>
+        <td>Ingresado manualmente<span class="badge-est">ingresado manualmente</span></td>
+        <td class="r">${x.cantidad.toLocaleString('es-VE')} ${esc(x.unidad)}</td><td class="r">US$ ${fmt(x.precioUnit)}</td><td class="r">US$ ${fmt(x.importe)}</td></tr>`);
+    });
     $('itemsBody').innerHTML = filas.join('');
 
     $('totalsBox').innerHTML = `
@@ -892,6 +980,12 @@ const Cotizador = (() => {
         xCell('Estimado caso a caso'), xCell(''), xCell(d.fleteImporte, 'sMoney', 'Number'),
       ]));
     }
+    d.partidas.forEach((x) => {
+      rows.push(xRow([
+        xCell(x.descripcion || 'Partida adicional'), xCell('Partida adicional'),
+        xCell(`${x.cantidad} ${x.unidad}`), xCell(x.precioUnit, 'sMoney', 'Number'), xCell(x.importe, 'sMoney', 'Number'),
+      ]));
+    });
     rows.push(xRow([]));
     rows.push(xRow([xCell(''), xCell(''), xCell(''), xCell('Subtotal', 'sLabel'), xCell(d.subtotal, 'sMoney', 'Number')]));
     rows.push(xRow([xCell(''), xCell(''), xCell(''), xCell(`IVA (${d.ivaPct}%)`, 'sLabel'), xCell(d.iva, 'sMoney', 'Number')]));
@@ -1068,7 +1162,7 @@ const Cotizador = (() => {
         id: S.ofertaId || undefined,
         numOferta: val('numOferta'), cliente: val('cliente') || '(sin nombre)', proyecto: val('proyecto') || '',
         campos: snapshot(), modo: S.modo, pago: S.pago, imagen: S.imagen, plano: S.plano, secciones: S.secciones,
-        remateModo: S.remateModo, flashingsItems: S.flashingsItems,
+        remateModo: S.remateModo, flashingsItems: S.flashingsItems, partidas: S.partidas,
       };
       const r = await ofertasGuardarImpl(record);
       S.ofertaId = r.id;
@@ -1086,7 +1180,9 @@ const Cotizador = (() => {
       S.secciones = r.secciones || [];
       S.remateModo = r.remateModo || 'estimado';
       S.flashingsItems = r.flashingsItems || [];
+      S.partidas = r.partidas || [];
       restaurar(r.campos || {});
+      renderPartidas();
       S.imagen = r.imagen || null;
       S.plano = r.plano || null;
       S.ofertaId = r.id;
