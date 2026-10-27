@@ -350,9 +350,12 @@ const Cotizador = (() => {
     const cont = $('flashingsLista');
     if (!cont) return;
     cont.innerHTML = S.flashingsItems.map((it, i) => `
-      <div class="row2 flashing-row" data-idx="${i}">
-        <div><label>Flashing</label><select class="fl-codigo" data-idx="${i}">${cat.flashings.map((f, fi) => `<option value="${fi}" ${fi === it.idx ? 'selected' : ''}>${esc(f.codigo)} — ${esc(f.descripcion)} (desarrollo ${esc(f.desarrollo)} cm) — US$ ${fmt(f.efectivo)}</option>`).join('')}</select></div>
-        <div><label>Piezas</label><input type="number" class="fl-piezas" data-idx="${i}" value="${it.piezas || 0}" min="0" step="1"></div>
+      <div class="flashing-row" data-idx="${i}">
+        <div class="row2">
+          <div><label>Flashing</label><select class="fl-codigo" data-idx="${i}">${cat.flashings.map((f, fi) => `<option value="${fi}" ${fi === it.idx ? 'selected' : ''}>${esc(f.codigo)} — ${esc(f.descripcion)} (desarrollo ${esc(f.desarrollo)} cm) — US$ ${fmt(f.efectivo)}</option>`).join('')}</select></div>
+          <div><label>Piezas</label><input type="number" class="fl-piezas" data-idx="${i}" value="${it.piezas || 0}" min="0" step="1"></div>
+        </div>
+        <button type="button" class="link fl-eliminar" data-idx="${i}">eliminar ✕</button>
       </div>`).join('') + '<button type="button" class="link" id="agregarFlashing">+ agregar otro flashing</button>';
   }
 
@@ -531,6 +534,12 @@ const Cotizador = (() => {
       }
       if (e.target.id === 'agregarFlashing') {
         S.flashingsItems.push(nuevoFlashingItem());
+        renderFlashings();
+        calcular();
+        return;
+      }
+      if (e.target.classList.contains('fl-eliminar')) {
+        S.flashingsItems.splice(+e.target.dataset.idx, 1);
         renderFlashings();
         calcular();
         return;
