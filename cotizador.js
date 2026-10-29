@@ -18,7 +18,7 @@ const Cotizador = (() => {
     const out = {};
     const montaje = {};
     for (const p of data.productos) {
-      (out[p.categoria] ??= []).push({ n: p.producto, ancho: p.ancho_util || null, efectivo: p.precio_efectivo, bcv: p.precio_bcv });
+      (out[p.categoria] ??= []).push({ n: p.producto, ancho: p.ancho_util || null, anchoFisico: p.ancho_fisico || null, efectivo: p.precio_efectivo, bcv: p.precio_bcv });
       if (p.montaje_m2 != null || p.montaje_ml != null) montaje[p.producto] = { m2: p.montaje_m2 ?? 0, ml: p.montaje_ml ?? 0 };
     }
     // Flashings (punto 4) y fijaciones (punto 5): catálogo real, opcional — vacío hasta que el
@@ -1265,5 +1265,5 @@ const Cotizador = (() => {
     calcular();
   }
 
-  return { mount, aplicarCalculoExterno };
+  return { mount, aplicarCalculoExterno, construirCatalogo };
 })();

@@ -124,7 +124,7 @@ const WebApp = (() => {
   function montarModulos() {
     if (precios.ok) Cotizador.mount(views.cotizador, { precios, acceso, empresa, logoSrc: 'assets/logo.png', email: WebAuth.current()?.email, pedidosFileId: cfg.pedidosFileId, demo: cfg.demo });
     else views.cotizador.innerHTML = bloqueError(precios, true);
-    Calculadora.mount(views.calculadora, { irACotizador: (datos) => { mostrar('cotizador'); Cotizador.aplicarCalculoExterno(datos); } });
+    Calculadora.mount(views.calculadora, { precios, irACotizador: (datos) => { mostrar('cotizador'); Cotizador.aplicarCalculoExterno(datos); } });
     Pedidos.mount(views.pedidos, pedidos);
     Clientes.mount(views.clientes, pedidos);
     Produccion.mount(views.produccion, pedidos);

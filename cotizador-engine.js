@@ -243,22 +243,27 @@
     return 'red';
   }
 
-  // Hoja de cálculo manual de láminas/correas (Standing Seam / Centrolam SSA) — réplica de la
-  // pestaña real "Calculo SSA" que ya usa el equipo. Confirmado con el equipo comercial: Cant Lam,
-  // Correas y Tornillos se llenan a mano (varía por obra, sin fórmula fija en ningún caso real
-  // revisado) — el motor solo suma los totales, igual que hacen sus propias fórmulas SUM().
-  // m2 por fila sí se calcula (largo × fondo es geometría, no criterio estructural).
-  function calcularLaminas(filas) {
+  // Hoja de cálculo de láminas/correas (Standing Seam y Paneles) — réplica de la pestaña real
+  // "Calculo SSA", ampliada con feedback real del equipo comercial (segunda ronda): Cant Lam SÍ
+  // tiene fórmula (fondo ÷ ancho útil de la lámina elegida, redondeado hacia arriba) y Tornillos/
+  // clips se derivan de Cant Lam × Correas × un múltiplo por cruce — a diferencia de la primera
+  // ronda, donde "se llena a mano" resultó ser cierto solo porque nadie había preguntado la
+  // fórmula. `clipsPorCruce` es un parámetro AJUSTABLE (no hay un valor único confirmado todavía
+  // por el equipo) — Correas sigue siendo manual: no se dio fórmula para derivarla del largo.
+  function calcularLaminas(filas, opts) {
+    const clipsPorCruce = n(opts && opts.clipsPorCruce);
     const rows = (Array.isArray(filas) ? filas : []).map((f) => {
       const largoLam = n(f.largoLam);
       const fondo = n(f.fondo);
+      const anchoUtil = n(f.anchoUtil);
+      const correas = n(f.correas);
+      const cantLam = anchoUtil > 0 ? Math.ceil(fondo / anchoUtil) : 0;
+      const tornillos = cantLam > 0 && correas > 0 ? cantLam * correas * clipsPorCruce : 0;
       return {
         nombre: f.nombre || '',
-        largoLam, fondo,
+        largoLam, fondo, anchoUtil,
         m2: +(largoLam * fondo).toFixed(4),
-        cantLam: n(f.cantLam),
-        correas: n(f.correas),
-        tornillos: n(f.tornillos),
+        cantLam, correas, tornillos,
       };
     });
     return {
@@ -269,5 +274,30 @@
     };
   }
 
-  return { calcularOferta, precioM2Lista, semaforo, calcularLaminas };
+  // Cálculo de flashings por tipo (feedback real, punto 4): piezas = longitud total ÷ largo útil
+  // por pieza, redondeado hacia arriba; tornillos/remaches = piezas × un múltiplo por pieza.
+  // Ambos (`largoUtilPieza`, `tornillosPorPieza`) son AJUSTABLES — el equipo dio 2,30 m como largo
+  // útil (distinto del `pieza_remate_m` de 2,40 m que ya usa el Cotizador para remates estimados:
+  // probablemente 2,40 es el largo de compra de la pieza y 2,30 el aprovechable tras solape, pero
+  // no está confirmado, así que no se tocó el valor existente).
+  function calcularFlashings(filas, opts) {
+    const largoUtilPieza = n(opts && opts.largoUtilPieza) || 1;
+    const tornillosPorPieza = n(opts && opts.tornillosPorPieza);
+    const rows = (Array.isArray(filas) ? filas : []).map((f) => {
+      const longitud = n(f.longitud);
+      const piezas = longitud > 0 ? Math.ceil(longitud / largoUtilPieza) : 0;
+      return {
+        nombre: f.nombre || '',
+        longitud, piezas,
+        tornillos: piezas * tornillosPorPieza,
+      };
+    });
+    return {
+      filas: rows,
+      totalPiezas: rows.reduce((a, r) => a + r.piezas, 0),
+      totalTornillos: rows.reduce((a, r) => a + r.tornillos, 0),
+    };
+  }
+
+  return { calcularOferta, precioM2Lista, semaforo, calcularLaminas, calcularFlashings };
 });

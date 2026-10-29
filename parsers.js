@@ -59,6 +59,12 @@ function parsePrecios({ productos, parametros, textos, tiposObra }) {
       categoria: String(f.categoria).trim(),
       producto: String(f.producto).trim(),
       ancho_util: num(f.ancho_util),
+      // Ancho físico del módulo/lámina (m) — distinto de ancho_util: ancho_util solo existe para
+      // convertir precio por ml a precio por m² (Standing Seam no lo necesita, ya está en US$/m²),
+      // pero para contar cantidad de láminas (Calculadora, punto 2 del feedback) hace falta el
+      // ancho real de cobertura de CUALQUIER producto, incluido Standing Seam. Si la columna viene
+      // vacía, la Calculadora usa ancho_util como respaldo (coincide para paneles).
+      ancho_fisico: num(f.ancho_fisico),
       // null (no 0) si la celda viene vacía: un precio en US$ 0 se vería como "gratis" en una
       // oferta real. El motor y la UI deben tratar null como "precio pendiente de confirmar".
       precio_efectivo: num(f.precio_efectivo),
