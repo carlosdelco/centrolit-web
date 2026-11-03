@@ -7,6 +7,7 @@ const WebData = (() => {
   const SHEETS_BASE = 'https://sheets.googleapis.com/v4/spreadsheets';
   const HOJAS_KPIS = { areas: 'Areas', kpis: 'KPIs', historial: 'Historial' };
   const HOJAS_PRECIOS = { productos: 'Productos', parametros: 'Parametros', textos: 'Textos', tiposObra: 'TiposObra' };
+  const HOJAS_PRECIOS_OPCIONAL = { flashings: 'Flashings', fijaciones: 'Fijaciones' };
 
   const cacheKey = (kind, email) => `centrolit.cache.${kind}.${email}`;
 
@@ -72,6 +73,20 @@ const WebData = (() => {
       const raw = await readTabs(fileId, names, token);
       const byKey = Object.fromEntries(Object.entries(tabs).map(([k, name]) => [k, raw[name]]));
       const data = kind === 'kpis' ? Parsers.parseKpis(byKey) : Parsers.parsePrecios(byKey);
+      if (kind === 'precios') {
+        // Pestañas Flashings/Fijaciones (puntos 4 y 5 del feedback): opcionales — si el Sheet
+        // todavía no las tiene, no debe romper la carga de Productos/Parametros/Textos. Esto
+        // faltaba en la web (sí estaba en escritorio) — por eso el catálogo de flashings de la
+        // Calculadora aparecía vacío solo en la web con cuenta real, nunca en demo ni escritorio.
+        try {
+          const rawOpc = await readTabs(fileId, Object.values(HOJAS_PRECIOS_OPCIONAL), token);
+          data.flashings = Parsers.parseFlashings(rawOpc[HOJAS_PRECIOS_OPCIONAL.flashings] || []);
+          data.fijaciones = Parsers.parseFijaciones(rawOpc[HOJAS_PRECIOS_OPCIONAL.fijaciones] || []);
+        } catch {
+          data.flashings = [];
+          data.fijaciones = [];
+        }
+      }
       writeCache(kind, data);
       return { ok: true, data, fetchedAt: new Date().toISOString(), source: 'google' };
     } catch (e) {

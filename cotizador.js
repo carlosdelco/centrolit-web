@@ -438,6 +438,11 @@ const Cotizador = (() => {
 
   function bind() {
     const grid = root.querySelector('.cot-grid'); // se recrea en cada mount: evita listeners duplicados
+    // Quita el "0" por defecto al entrar a un campo numérico, para no tener que borrarlo a mano
+    // antes de escribir (focusin, a diferencia de focus, sí burbujea — delegación en un solo sitio).
+    grid.addEventListener('focusin', (e) => {
+      if (e.target.tagName === 'INPUT' && e.target.type === 'number' && e.target.value === '0') e.target.value = '';
+    });
     grid.addEventListener('input', (e) => {
       const t = e.target;
       if (t.id === 'comentarios' || t.type === 'file') return;

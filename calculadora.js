@@ -183,6 +183,17 @@ const Calculadora = (() => {
     if (filasFlash.length === 0 && cat.flashings.length) filasFlash.push(nuevaFilaFlash());
     pintar();
 
+    // Quita el "0" por defecto al entrar a un campo numérico (focusin burbujea, a diferencia de
+    // focus). OJO: a diferencia de onclick/oninput, "onfocusin" como propiedad (root.onfocusin=...)
+    // no funciona en Chromium/Electron — hace falta addEventListener. root se recrea en cada
+    // mount(), pero este listener se añade una sola vez por módulo cargado, no se duplica.
+    if (!root.dataset.focusinBound) {
+      root.dataset.focusinBound = '1';
+      root.addEventListener('focusin', (e) => {
+        if (e.target.tagName === 'INPUT' && e.target.type === 'number' && e.target.value === '0') e.target.value = '';
+      });
+    }
+
     root.oninput = (e) => {
       const t = e.target;
       const idx = t.dataset.idx;
