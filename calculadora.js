@@ -223,7 +223,12 @@ const Calculadora = (() => {
         const rf = calcularFlash();
         const tornillosCant = rl.totalTornillos + rf.totalTornillos;
         if (rl.totalM2 <= 0 && tornillosCant <= 0) { toast('No hay nada que enviar todavía.', 'error'); return; }
-        onEnviar && onEnviar({ areaM2: rl.totalM2, tornillosCant });
+        // Una entrada por área con m² > 0 — el Cotizador decide con esto si aplica como ítem
+        // único (1 área) o como varias secciones (2+), ver Cotizador.aplicarCalculoExterno().
+        const secciones = rl.filas
+          .map((r, i) => ({ nombre: r.nombre, areaM2: r.m2, pv: filasLam[i] ? filasLam[i].pv : '' }))
+          .filter((s) => s.areaM2 > 0);
+        onEnviar && onEnviar({ areaM2: rl.totalM2, tornillosCant, secciones });
         toast('Enviado al Cotizador.');
       }
     };

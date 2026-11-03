@@ -1249,19 +1249,57 @@ const Cotizador = (() => {
     document.body.appendChild(overlay);
   }
 
-  // Puente con la Calculadora de láminas/correas: aplica sus totales al ítem único (área y
-  // cantidad manual de tornillos) — no toca modo secciones, el usuario decide si lo desactiva.
-  function aplicarCalculoExterno({ areaM2, tornillosCant }) {
+  // Puente con la Calculadora de láminas/correas. Bug real reportado (varios usuarios, nov 2026):
+  // cuando el Cotizador ya tenía "Cotizar por secciones" activo (típico de quien cotiza varios
+  // techos — justo quienes más usan la Calculadora con varias áreas), esta función se limitaba a
+  // mostrar un aviso y no aplicaba nada: parecía que el botón "no hacía nada". Corregido: si la
+  // Calculadora mandó 2+ áreas, se aplican como 2+ secciones (una por área, con su propio
+  // producto); si mandó 1 sola, se aplica al ítem único y se desactivan las secciones si estaban
+  // encendidas (en vez de bloquear).
+  function aplicarCalculoExterno({ areaM2, tornillosCant, secciones }) {
     if (!root) return;
-    if (chk('incluirSecciones')) { toast('Desactiva "Cotizar por secciones" para aplicar el cálculo de la Calculadora.', 'error'); return; }
-    S.modo = 'm2';
-    marcar('medidaToggle', 'm2');
-    $('areaDirectaBox').hidden = false;
-    $('areaMlBox').hidden = true;
-    $('area').value = Math.round(areaM2 * 100) / 100;
-    $('tornillosManualChk').checked = true;
-    toggleBox('tornillosManualChk');
-    $('tornillosCantManual').value = Math.round(tornillosCant);
+    const n = Array.isArray(secciones) ? secciones.length : 0;
+    if (n >= 2) {
+      if (!chk('incluirSecciones')) $('incluirSecciones').checked = true;
+      S.secciones = secciones.map((s) => ({
+        id: 's' + Math.random().toString(36).slice(2, 8),
+        nombre: s.nombre || '',
+        pv: s.pv || productosPlanos()[0]?.value || '',
+        // m2 siempre: el área ya viene calculada (largo × fondo) independientemente de si el
+        // producto se vende por ml o m² en la lista de precios — eso lo resuelve el motor solo.
+        modo: 'm2', area: Math.round((s.areaM2 || 0) * 100) / 100,
+        mlLargo: 0, mlAncho: 0, rematesMl: 0,
+      }));
+      toggleSecciones();
+      renderSecciones();
+      // El Cotizador no soporta tornillos por sección todavía (fuera de alcance, ver CLAUDE.md) —
+      // se aproxima con una tasa/m² equivalente que reproduce el total correcto de tornillos,
+      // aunque no reparta exactamente igual que la Calculadora entre secciones con distinta
+      // correas/ancho útil.
+      const tasa = areaM2 > 0 ? tornillosCant / areaM2 : 0;
+      $('tornillos').value = Math.round(tasa * 100) / 100;
+      toast(`Aplicado como ${n} secciones. Los tornillos se repartieron como una tasa equivalente por m² (el Cotizador no tiene tornillos por sección todavía) — revisa el total.`);
+    } else {
+      if (chk('incluirSecciones')) { $('incluirSecciones').checked = false; toggleSecciones(); }
+      const unaSeccion = n === 1 ? secciones[0] : null;
+      if (unaSeccion && unaSeccion.pv) {
+        const [catN] = unaSeccion.pv.split('||');
+        if (cat.categorias[catN]) {
+          $('categoria').value = catN;
+          poblarProductos();
+          $('producto').value = unaSeccion.pv.split('||')[1];
+          onProducto();
+        }
+      }
+      S.modo = 'm2';
+      marcar('medidaToggle', 'm2');
+      $('areaDirectaBox').hidden = false;
+      $('areaMlBox').hidden = true;
+      $('area').value = Math.round(areaM2 * 100) / 100;
+      $('tornillosManualChk').checked = true;
+      toggleBox('tornillosManualChk');
+      $('tornillosCantManual').value = Math.round(tornillosCant);
+    }
     calcular();
   }
 
