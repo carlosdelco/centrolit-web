@@ -64,6 +64,11 @@ const Cotizador = (() => {
     </div>
 
     <div class="card"><h2><span class="dot"></span>Especificación técnica</h2>
+      <div id="calcOrigenHint" class="hint" hidden style="background:#eef6ff;border:1px solid #bcd8f5;border-radius:6px;padding:8px;margin-bottom:10px">
+        📐 Estos valores vinieron de la Calculadora. El modo (m²/metros lineales) ya se ajustó solo
+        según el producto elegido — no hace falta tocarlo, solo revisa el resultado abajo.
+        <button type="button" class="link" id="calcOrigenCerrar" style="margin-left:6px">cerrar</button>
+      </div>
       <label class="chk"><input type="checkbox" id="incluirSecciones"> Cotizar por secciones (varias aguas, o techo + pantalla por separado)</label>
       <div class="hint">Úsalo cuando el techo tiene aguas de distinto tamaño, son varios techos que el cliente quiere ver por etapas, o hay techo y pantalla con sistemas distintos.</div>
       <div id="seccionUnicaBox">
@@ -110,7 +115,7 @@ const Cotizador = (() => {
       </div>
       ${cat.fijaciones.length ? `
       <label>Fijación específica (catálogo real, opcional)</label>
-      <select id="fijacionCatalogo"><option value="">— usar precio de tornillo general —</option>${cat.fijaciones.map((f, i) => `<option value="${i}">${esc(f.nombre)} — US$ ${fmt(f.efectivo)}</option>`).join('')}</select>
+      <select id="fijacionCatalogo"><option value="">— usar precio de tornillo general —</option>${cat.fijaciones.map((f, i) => `<option value="${i}">${esc(f.nombre)}${f.uso ? ' — ' + esc(f.uso) : ''} — US$ ${fmt(f.efectivo)}</option>`).join('')}</select>
       <div class="hint" id="fijacionUsoHint"></div>` : ''}
       <div id="remateUnicoBox">
         <label>Remates / flashings</label>
@@ -567,6 +572,10 @@ const Cotizador = (() => {
         S.secciones.push(nuevaSeccion());
         renderSecciones();
         calcular();
+        return;
+      }
+      if (e.target.id === 'calcOrigenCerrar') {
+        $('calcOrigenHint').hidden = true;
         return;
       }
       if (e.target.classList.contains('pa-eliminar')) {
@@ -1254,6 +1263,20 @@ const Cotizador = (() => {
     document.body.appendChild(overlay);
   }
 
+  // Convierte un área (m²) calculada en la Calculadora al modo que corresponde al producto
+  // (ml para paneles/ancho útil, m² para Standing Seam) — punto 1/2 del feedback de Violeta
+  // (nov 2026): forzar siempre m² aquí, aunque daba el mismo total en US$, mostraba el toggle
+  // "m²" para un producto que el equipo SIEMPRE piensa en ml (Maxipanel, TP3/TP4...), que era
+  // justo la "confusión sobre de qué lado hacer el cálculo" que reportó.
+  function areaComoModo(pv, areaM2) {
+    const p = productoPorValor(pv);
+    const modo = modoDeProducto(p);
+    if (modo === 'ml' && p && p.ancho > 0) {
+      return { modo: 'ml', area: 0, mlAncho: p.ancho, mlLargo: Math.round((areaM2 / p.ancho) * 100) / 100 };
+    }
+    return { modo: 'm2', area: Math.round(areaM2 * 100) / 100, mlAncho: 0, mlLargo: 0 };
+  }
+
   // Puente con la Calculadora de láminas/correas. Bug real reportado (varios usuarios, nov 2026):
   // cuando el Cotizador ya tenía "Cotizar por secciones" activo (típico de quien cotiza varios
   // techos — justo quienes más usan la Calculadora con varias áreas), esta función se limitaba a
@@ -1261,20 +1284,17 @@ const Cotizador = (() => {
   // Calculadora mandó 2+ áreas, se aplican como 2+ secciones (una por área, con su propio
   // producto); si mandó 1 sola, se aplica al ítem único y se desactivan las secciones si estaban
   // encendidas (en vez de bloquear).
-  function aplicarCalculoExterno({ areaM2, tornillosCant, secciones }) {
+  function aplicarCalculoExterno({ areaM2, tornillosCant, secciones, flashings }) {
     if (!root) return;
+    if ($('calcOrigenHint')) $('calcOrigenHint').hidden = false;
     const n = Array.isArray(secciones) ? secciones.length : 0;
     if (n >= 2) {
       if (!chk('incluirSecciones')) $('incluirSecciones').checked = true;
-      S.secciones = secciones.map((s) => ({
-        id: 's' + Math.random().toString(36).slice(2, 8),
-        nombre: s.nombre || '',
-        pv: s.pv || productosPlanos()[0]?.value || '',
-        // m2 siempre: el área ya viene calculada (largo × fondo) independientemente de si el
-        // producto se vende por ml o m² en la lista de precios — eso lo resuelve el motor solo.
-        modo: 'm2', area: Math.round((s.areaM2 || 0) * 100) / 100,
-        mlLargo: 0, mlAncho: 0, rematesMl: 0,
-      }));
+      S.secciones = secciones.map((s) => {
+        const pv = s.pv || productosPlanos()[0]?.value || '';
+        const am = areaComoModo(pv, s.areaM2 || 0);
+        return { id: 's' + Math.random().toString(36).slice(2, 8), nombre: s.nombre || '', pv, rematesMl: 0, ...am };
+      });
       toggleSecciones();
       renderSecciones();
       // El Cotizador no soporta tornillos por sección todavía (fuera de alcance, ver CLAUDE.md) —
@@ -1283,27 +1303,54 @@ const Cotizador = (() => {
       // correas/ancho útil.
       const tasa = areaM2 > 0 ? tornillosCant / areaM2 : 0;
       $('tornillos').value = Math.round(tasa * 100) / 100;
-      toast(`Aplicado como ${n} secciones. Los tornillos se repartieron como una tasa equivalente por m² (el Cotizador no tiene tornillos por sección todavía) — revisa el total.`);
+      // Los flashings detallados por pieza solo se soportan en modo de un solo ítem (ver motor,
+      // calcularOferta()) — con secciones no hay dónde aplicarlos todavía, así que se avisa en
+      // vez de aplicar algo que luego no se refleje en el total.
+      const avisoFlashings = Array.isArray(flashings) && flashings.length
+        ? ' Los flashings calculados NO se aplicaron (el modo detallado por pieza todavía no funciona junto con secciones) — agrégalos a mano si hacen falta.'
+        : '';
+      toast(`Aplicado como ${n} secciones. Los tornillos se repartieron como una tasa equivalente por m² (el Cotizador no tiene tornillos por sección todavía) — revisa el total.${avisoFlashings}`);
+      calcular();
+      return;
     } else {
       if (chk('incluirSecciones')) { $('incluirSecciones').checked = false; toggleSecciones(); }
       const unaSeccion = n === 1 ? secciones[0] : null;
-      if (unaSeccion && unaSeccion.pv) {
-        const [catN] = unaSeccion.pv.split('||');
+      let pv = unaSeccion && unaSeccion.pv;
+      if (pv) {
+        const [catN] = pv.split('||');
         if (cat.categorias[catN]) {
           $('categoria').value = catN;
           poblarProductos();
-          $('producto').value = unaSeccion.pv.split('||')[1];
+          $('producto').value = pv.split('||')[1];
           onProducto();
-        }
+        } else pv = null;
       }
-      S.modo = 'm2';
-      marcar('medidaToggle', 'm2');
-      $('areaDirectaBox').hidden = false;
-      $('areaMlBox').hidden = true;
-      $('area').value = Math.round(areaM2 * 100) / 100;
+      const am = pv ? areaComoModo(pv, areaM2) : { modo: 'm2', area: Math.round(areaM2 * 100) / 100, mlAncho: 0, mlLargo: 0 };
+      S.modo = am.modo;
+      marcar('medidaToggle', am.modo);
+      $('areaDirectaBox').hidden = am.modo !== 'm2';
+      $('areaMlBox').hidden = am.modo !== 'ml';
+      if (am.modo === 'ml') {
+        $('mlAncho').value = am.mlAncho;
+        $('mlLargo').value = am.mlLargo;
+      } else {
+        $('area').value = am.area;
+      }
       $('tornillosManualChk').checked = true;
       toggleBox('tornillosManualChk');
       $('tornillosCantManual').value = Math.round(tornillosCant);
+    }
+    // Remates/flashings calculados en la Calculadora (punto 4 del feedback de Violeta) — antes no
+    // se mandaban nunca, así que la oferta se quedaba con el modo "Estimado" en 0 ml / US$ 0.
+    if (Array.isArray(flashings) && flashings.length && cat.flashings.length) {
+      $('remateModoToggle') && (S.remateModo = 'detallado');
+      marcar('remateModoToggle', 'detallado');
+      if ($('remateEstimadoBox')) $('remateEstimadoBox').hidden = true;
+      if ($('remateDetalladoBox')) $('remateDetalladoBox').hidden = false;
+      S.flashingsItems = flashings
+        .map((f) => ({ id: 'f' + Math.random().toString(36).slice(2, 8), idx: cat.flashings.findIndex((c) => c.codigo === f.codigo), piezas: f.piezas }))
+        .filter((f) => f.idx >= 0 && f.piezas > 0);
+      if (S.flashingsItems.length) renderFlashings();
     }
     calcular();
   }

@@ -84,7 +84,7 @@ const Calculadora = (() => {
           <dt>Total tornillos (láminas + flashings)</dt><dd id="outTotalTornillos">${totalTornillos.toLocaleString('es-VE')}</dd>
         </dl>
         <div class="btnrow" style="margin-top:12px"><button class="btn" id="enviarCotizador">→ Enviar al Cotizador</button></div>
-        <div class="hint">Lleva Total m² al área del Cotizador (modo Standing Seam) y Total tornillos a su "Cantidad manual de tornillos" — úsalo para comparar contra lo que el Cotizador calcula por su cuenta.</div>
+        <div class="hint">Lleva el área al Cotizador en el modo correcto según el tipo de lámina (ml para paneles, m² para Standing Seam), los tornillos a su "Cantidad manual" y los flashings al modo "Detallado" — úsalo para comparar contra lo que el Cotizador calcula por su cuenta.</div>
       </div>
     </div>`;
     pintarLam();
@@ -239,7 +239,12 @@ const Calculadora = (() => {
         const secciones = rl.filas
           .map((r, i) => ({ nombre: r.nombre, areaM2: r.m2, pv: filasLam[i] ? filasLam[i].pv : '' }))
           .filter((s) => s.areaM2 > 0);
-        onEnviar && onEnviar({ areaM2: rl.totalM2, tornillosCant, secciones });
+        // Flashings calculados aquí (punto 4 del feedback de Violeta) — antes no se mandaban,
+        // así que el Cotizador se quedaba en modo "Estimado" con 0 ml / US$ 0.
+        const flashings = rf.filas
+          .map((r, i) => ({ codigo: cat.flashings[filasFlash[i] ? filasFlash[i].fi : 0]?.codigo, piezas: r.piezas }))
+          .filter((f) => f.codigo && f.piezas > 0);
+        onEnviar && onEnviar({ areaM2: rl.totalM2, tornillosCant, secciones, flashings });
         toast('Enviado al Cotizador.');
       }
     };

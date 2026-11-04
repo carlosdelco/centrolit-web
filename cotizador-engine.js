@@ -174,7 +174,10 @@
     const partidasImporte = partidas.reduce((a, x) => a + x.importe, 0);
 
     const subtotal = materialImporte + tornillosImporte + rematesImporte + montajeImporte + fleteImporte + partidasImporte;
-    const iva = (subtotal * ivaPct) / 100;
+    // El flete no paga IVA (confirmado por el equipo comercial, sesión 2026-11-04): el IVA se
+    // calcula sobre suministro + montaje + partidas, pero NO sobre el flete.
+    const ivaBase = subtotal - fleteImporte;
+    const iva = (ivaBase * ivaPct) / 100;
     const total = subtotal + iva;
     const totalBs = tasaBcv > 0 ? total * tasaBcv : null;
 
@@ -187,7 +190,7 @@
       diasGrua, precioGruaDia, gruaImporte, andamios, supervisor,
       incluirFlete, precioFlete, fleteImporte,
       partidas, partidasImporte,
-      subtotal, ivaPct, iva, total, tasaBcv, totalBs,
+      subtotal, ivaBase, ivaPct, iva, total, tasaBcv, totalBs,
       incluirMargen: !!i.margen,
       margenData: null,
     };
