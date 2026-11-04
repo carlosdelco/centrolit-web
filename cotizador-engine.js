@@ -262,16 +262,27 @@
       const correas = n(f.correas);
       const cantLam = anchoUtil > 0 ? Math.ceil(fondo / anchoUtil) : 0;
       const tornillos = cantLam > 0 && correas > 0 ? cantLam * correas * clipsPorCruce : 0;
+      // Paneles (TP3/TP4/SP50/Maxipanel/R-97...) se cotizan por metro lineal; Standing Seam
+      // (SSA/AASS...) por m² — confirmado por el equipo comercial (feedback Violeta, nov 2026):
+      // "cuando colocamos cualquiera de las opciones de Paneles automáticamente debería sacar el
+      // cálculo por metro lineal". `anchoUtilPrecio` (= ancho_util real del producto, el mismo que
+      // usa la lista de precios para dividir US$/ml → US$/m²) decide si aplica: null/0 en Standing
+      // Seam, que no tiene ancho_util. ml = cantidad de láminas × largo de cada una.
+      const anchoUtilPrecio = n(f.anchoUtilPrecio);
+      const esPanel = anchoUtilPrecio > 0;
+      const ml = esPanel ? +(cantLam * largoLam).toFixed(4) : null;
       return {
         nombre: f.nombre || '',
         largoLam, fondo, anchoUtil,
         m2: +(largoLam * fondo).toFixed(4),
+        esPanel, ml,
         cantLam, correas, tornillos,
       };
     });
     return {
       filas: rows,
       totalM2: rows.reduce((a, r) => a + r.m2, 0),
+      totalMl: rows.reduce((a, r) => a + (r.ml || 0), 0),
       totalLam: rows.reduce((a, r) => a + r.cantLam, 0),
       totalTornillos: rows.reduce((a, r) => a + r.tornillos, 0),
     };

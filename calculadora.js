@@ -34,6 +34,13 @@ const Calculadora = (() => {
     const p = productoPorValor(v);
     return p ? (p.anchoFisico ?? p.ancho ?? 0) : 0;
   }
+  // Distinto de anchoFisicoDe(): esto es el ancho útil REAL de precio (ancho_util), el mismo que
+  // usa la lista de precios para dividir US$/ml → US$/m². Solo lo tienen los paneles (TP3/TP4/
+  // SP50/Maxipanel/R-97...); Standing Seam no, aunque sí tenga un ancho físico para contar láminas.
+  function anchoUtilPrecioDe(v) {
+    const p = productoPorValor(v);
+    return p ? (p.ancho || 0) : 0;
+  }
 
   function nuevaFilaLam() {
     const pv = productosPlanos()[0]?.value || '';
@@ -44,7 +51,7 @@ const Calculadora = (() => {
   }
 
   function calcularLam() {
-    const entrada = filasLam.map((f) => ({ ...f, anchoUtil: anchoFisicoDe(f.pv) }));
+    const entrada = filasLam.map((f) => ({ ...f, anchoUtil: anchoFisicoDe(f.pv), anchoUtilPrecio: anchoUtilPrecioDe(f.pv) }));
     return CotizadorEngine.calcularLaminas(entrada, { clipsPorCruce: params.clipsPorCruce });
   }
   function calcularFlash() {
@@ -79,6 +86,7 @@ const Calculadora = (() => {
         <h2><span class="dot"></span>Totales</h2>
         <dl class="kv" id="calcTotales">
           <dt>Total m² (láminas)</dt><dd id="outTotalM2">${fmt(rl.totalM2)} m²</dd>
+          <dt>Total metros lineales (paneles)</dt><dd id="outTotalMl">${fmt(rl.totalMl)} ml</dd>
           <dt>Total láminas</dt><dd id="outTotalLam">${rl.totalLam.toLocaleString('es-VE')}</dd>
           <dt>Total piezas de flashing</dt><dd id="outTotalPiezas">${rf.totalPiezas.toLocaleString('es-VE')}</dd>
           <dt>Total tornillos (láminas + flashings)</dt><dd id="outTotalTornillos">${totalTornillos.toLocaleString('es-VE')}</dd>
@@ -101,9 +109,13 @@ const Calculadora = (() => {
       const m2 = (parseFloat(f.largoLam) || 0) * (parseFloat(f.fondo) || 0);
       const correas = parseFloat(f.correas) || 0;
       const tornillos = cantLam > 0 && correas > 0 ? cantLam * correas * params.clipsPorCruce : 0;
+      // Paneles se cotizan por metro lineal, Standing Seam por m² (confirmado por el equipo,
+      // feedback Violeta nov 2026) — la medida principal cambia según el tipo de lámina elegido.
+      const esPanel = anchoUtilPrecioDe(f.pv) > 0;
+      const ml = esPanel ? cantLam * (parseFloat(f.largoLam) || 0) : 0;
       return `<div class="partida-row" data-idx="${idx}">
         <div class="row2">
-          <div><label>Área</label><input type="text" class="l-nombre" data-idx="${idx}" value="${esc(f.nombre)}" placeholder="Techo, Pantallas…"></div>
+          <div><label>Nombre del área</label><input type="text" class="l-nombre" data-idx="${idx}" value="${esc(f.nombre)}" placeholder="Techo, Pantallas…"></div>
           <div><label>Tipo de lámina</label><select class="l-producto" data-idx="${idx}">${opciones.map((p) => `<option value="${esc(p.value)}" ${p.value === f.pv ? 'selected' : ''}>${esc(p.label)}</option>`).join('')}</select></div>
         </div>
         <div class="row2">
@@ -114,10 +126,11 @@ const Calculadora = (() => {
           <div><label>Ancho útil de la lámina</label><input type="text" class="l-out-ancho" data-idx="${idx}" value="${anchoUtil ? fmt(anchoUtil) + ' m' : '—'}" disabled></div>
           <div><label>Cant. láminas (auto)</label><input type="text" class="l-out-cantlam" data-idx="${idx}" value="${cantLam}" disabled></div>
         </div>
-        <div class="row2">
-          <div><label>m² (auto)</label><input type="text" class="l-out-m2" data-idx="${idx}" value="${fmt(m2)}" disabled></div>
+        <div class="row2 l-medida-principal" data-panel="${esPanel ? '1' : '0'}">
+          <div><label>${esPanel ? 'Metros lineales (auto)' : 'm² (auto)'}</label><input type="text" class="l-out-medida" data-idx="${idx}" value="${esPanel ? fmt(ml) + ' ml' : fmt(m2) + ' m²'}" disabled></div>
           <div><label>Correas</label><input type="number" class="l-correas" data-idx="${idx}" value="${f.correas || 0}" min="0" step="1"></div>
         </div>
+        <div class="hint l-out-secundaria">${esPanel ? `(referencia: ${fmt(m2)} m² totales)` : 'Standing Seam se cotiza por m², no aplica metros lineales.'}</div>
         <label>Tornillos/clips (auto)</label><input type="text" class="l-out-tornillos" data-idx="${idx}" value="${tornillos.toLocaleString('es-VE')}" disabled>
         <button type="button" class="link l-eliminar" data-idx="${idx}">eliminar ✕</button>
       </div>`;
@@ -155,7 +168,9 @@ const Calculadora = (() => {
       if (!r) return;
       div.querySelector('.l-out-ancho').value = r.anchoUtil ? fmt(r.anchoUtil) + ' m' : '—';
       div.querySelector('.l-out-cantlam').value = r.cantLam;
-      div.querySelector('.l-out-m2').value = fmt(r.m2);
+      div.querySelector('.l-medida-principal label').textContent = r.esPanel ? 'Metros lineales (auto)' : 'm² (auto)';
+      div.querySelector('.l-out-medida').value = r.esPanel ? fmt(r.ml) + ' ml' : fmt(r.m2) + ' m²';
+      div.querySelector('.l-out-secundaria').textContent = r.esPanel ? `(referencia: ${fmt(r.m2)} m² totales)` : 'Standing Seam se cotiza por m², no aplica metros lineales.';
       div.querySelector('.l-out-tornillos').value = r.tornillos.toLocaleString('es-VE');
     });
     root.querySelectorAll('#flashLista .partida-row').forEach((div, idx) => {
@@ -166,6 +181,7 @@ const Calculadora = (() => {
     });
     const totalTornillos = rl.totalTornillos + rf.totalTornillos;
     $out('outTotalM2', fmt(rl.totalM2) + ' m²');
+    $out('outTotalMl', fmt(rl.totalMl) + ' ml');
     $out('outTotalLam', rl.totalLam.toLocaleString('es-VE'));
     $out('outTotalPiezas', rf.totalPiezas.toLocaleString('es-VE'));
     $out('outTotalTornillos', totalTornillos.toLocaleString('es-VE'));
