@@ -257,15 +257,25 @@ const Calculadora = (() => {
         // Cotizador la volvía a dividir entre el ancho útil, perdiendo el redondeo hacia arriba de
         // Cant. láminas y dando un número distinto al que ya se veía aquí (reportado por el
         // usuario: 41,40 ml calculados aquí vs. 38,33 ml recibidos del lado del Cotizador).
+        // tornillos: r.tornillos de ESTA fila (cantLam × correas × clipsPorCruce, ya con el
+        // redondeo de láminas aplicado) — debe llegar EXACTO a esa misma sección del Cotizador,
+        // no una tasa US$/m² aproximada repartida entre todas (feedback real: "lo que aparece en
+        // la Calculadora debe ser lo mismo que en el Cotizador").
         const secciones = rl.filas
-          .map((r, i) => ({ nombre: r.nombre, areaM2: r.m2, ml: r.ml, pv: filasLam[i] ? filasLam[i].pv : '' }))
+          .map((r, i) => ({ nombre: r.nombre, areaM2: r.m2, ml: r.ml, tornillos: r.tornillos, pv: filasLam[i] ? filasLam[i].pv : '' }))
           .filter((s) => s.areaM2 > 0);
         // Flashings calculados aquí (punto 4 del feedback de Violeta) — antes no se mandaban,
         // así que el Cotizador se quedaba en modo "Estimado" con 0 ml / US$ 0.
         const flashings = rf.filas
           .map((r, i) => ({ codigo: cat.flashings[filasFlash[i] ? filasFlash[i].fi : 0]?.codigo, piezas: r.piezas }))
           .filter((f) => f.codigo && f.piezas > 0);
-        onEnviar && onEnviar({ areaM2: rl.totalM2, tornillosCant, secciones, flashings });
+        // Los tornillos de flashings (rf.totalTornillos) son un tipo de fijación distinto del
+        // tornillo de lámina — el Cotizador no tiene todavía una línea propia para ellos ni un
+        // precio identificado (pendiente, ver CLAUDE.md). Se mandan como partida adicional con
+        // precio en US$0 para que quede visible y el usuario complete el precio real, en vez de
+        // perderse en silencio.
+        const tornillosFlashingsSinPrecio = rf.totalTornillos > 0 ? rf.totalTornillos : 0;
+        onEnviar && onEnviar({ areaM2: rl.totalM2, tornillosCant, secciones, flashings, tornillosFlashingsSinPrecio });
         toast('Enviado al Cotizador.');
       }
     };

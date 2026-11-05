@@ -129,7 +129,7 @@ const Cotizador = (() => {
           <div class="hint">Cada flashing del catálogo real tiene su propio desarrollo y precio — no se engloban en uno solo (punto 4 del feedback).</div>
         </div>
       </div>
-      <div class="hint" id="remateSeccionesHint" hidden>Los remates de cada sección se ingresan en "Secciones", dentro de cada una.</div>
+      <div class="hint" id="remateSeccionesHint" hidden>Con "Cotizar por secciones" activo: el remate "Estimado (ml)" se ingresa dentro de cada sección (más abajo). Los flashings del catálogo real de arriba aplican a TODA la oferta (no por sección) y, si los usas, reemplazan el estimado de cada sección — no se suman ambos.</div>
       <label class="chk"><input type="checkbox" id="incluirMontaje"> Incluir montaje en esta oferta</label>
       <div class="manual-box" id="montajeBox" hidden>
         <div class="row2">
@@ -334,7 +334,7 @@ const Cotizador = (() => {
 
   function nuevaSeccion() {
     const pv = productosPlanos()[0]?.value || '';
-    return { id: 's' + Math.random().toString(36).slice(2, 8), nombre: '', pv, modo: modoDeProducto(productoPorValor(pv)), area: 0, mlLargo: 0, mlAncho: 0, rematesMl: 0 };
+    return { id: 's' + Math.random().toString(36).slice(2, 8), nombre: '', pv, modo: modoDeProducto(productoPorValor(pv)), area: 0, mlLargo: 0, mlAncho: 0, rematesMl: 0, tornillosCantManual: '' };
   }
 
   function renderSecciones() {
@@ -357,7 +357,8 @@ const Cotizador = (() => {
             <div><label>Largo (ml)</label><input type="number" class="sec-largo" data-idx="${idx}" value="${s.mlLargo || 0}" min="0" step="0.1"></div>
             <div><label>Ancho de cobertura (m)</label><input type="number" class="sec-ancho" data-idx="${idx}" value="${s.mlAncho || 0}" min="0" step="0.01"></div>
           </div>` : `<label>Área (m²)</label><input type="number" class="sec-area" data-idx="${idx}" value="${s.area || 0}" min="0" step="1">`}
-        <label>Remates/flashings de esta sección (ml)</label><input type="number" class="sec-remates" data-idx="${idx}" value="${s.rematesMl || 0}" min="0" step="1">
+        <label>Remates/flashings de esta sección (ml, estimado — ver también "Flashings" más abajo)</label><input type="number" class="sec-remates" data-idx="${idx}" value="${s.rematesMl || 0}" min="0" step="1">
+        <label>Tornillos — cantidad manual de esta sección (opcional, vacío = usar "Tornillos/m²" de arriba)</label><input type="number" class="sec-tornillos-manual" data-idx="${idx}" value="${s.tornillosCantManual || ''}" min="0" step="1" placeholder="auto">
       </div>`).join('') + '<button type="button" class="btn" id="agregarSeccion">+ Agregar sección</button>';
   }
 
@@ -450,11 +451,20 @@ const Cotizador = (() => {
     const on = chk('incluirSecciones');
     $('seccionUnicaBox').hidden = on;
     $('seccionesBox').hidden = !on;
-    $('remateUnicoBox').hidden = on;
-    $('remateSeccionesHint').hidden = !on;
-    // Cantidad manual de tornillos es por ahora solo del ítem único, igual que desperdicio/
-    // tornillos-por-m² en modo secciones (son compartidos entre secciones, no por sección).
+    // El checkbox "Cantidad manual de tornillos" de arriba es del ítem único — en secciones cada
+    // una tiene su propio campo de tornillos manual (ver renderSecciones()).
     if ($('tornillosManualWrap')) $('tornillosManualWrap').hidden = on;
+    // Remates "Detallado" (catálogo real) SÍ aplica en secciones, pero como bloque GLOBAL (la
+    // Calculadora no asocia cada flashing a un área concreta — feedback real nov 2026). "Estimado
+    // (ml)" ya existe por sección dentro de "Secciones", así que esa opción se oculta aquí para no
+    // tener dos lugares distintos haciendo lo mismo.
+    $('remateUnicoBox').hidden = false;
+    if ($('remateModoToggle')) $('remateModoToggle').hidden = on;
+    if (on && S.remateModo !== 'detallado') { S.remateModo = 'detallado'; marcar('remateModoToggle', 'detallado'); }
+    $('remateEstimadoBox').hidden = on || S.remateModo !== 'estimado';
+    $('remateDetalladoBox').hidden = on ? false : S.remateModo !== 'detallado';
+    if (S.remateModo === 'detallado') renderFlashings();
+    $('remateSeccionesHint').hidden = !on;
     if (on && S.secciones.length === 0) S.secciones.push(nuevaSeccion());
     if (on) renderSecciones();
   }
@@ -479,6 +489,7 @@ const Cotizador = (() => {
         else if (t.classList.contains('sec-largo')) s.mlLargo = t.value;
         else if (t.classList.contains('sec-ancho')) s.mlAncho = t.value;
         else if (t.classList.contains('sec-remates')) s.rematesMl = t.value;
+        else if (t.classList.contains('sec-tornillos-manual')) s.tornillosCantManual = t.value;
       } else if (idx !== undefined && S.partidas[idx]) {
         const x = S.partidas[idx];
         if (t.classList.contains('pa-desc')) x.descripcion = t.value;
@@ -727,10 +738,13 @@ const Cotizador = (() => {
         area: areaSeccion(s),
         desperdicioPct: val('desperdicio'),
         tornillosPorM2: val('tornillos'),
+        tornillosCantManual: s.tornillosCantManual,
         rematesMl: s.rematesMl,
       };
     }) : null;
-    const rematesDetalle = (!multi && S.remateModo === 'detallado')
+    // Flashings "Detallado" (catálogo real): en secciones son GLOBALES (ver motor,
+    // calcularOferta()), así que se construyen igual tenga o no secciones activas.
+    const rematesDetalle = (S.remateModo === 'detallado')
       ? S.flashingsItems.map((it) => {
           const f = cat.flashings[it.idx];
           return { codigo: f ? f.codigo : '', piezas: it.piezas, precioUnit: f ? f[S.pago] : 0 };
@@ -768,6 +782,7 @@ const Cotizador = (() => {
         const sIn = S.secciones[idx];
         s.modo = sIn ? sIn.modo : 'm2';
         s.anchoUtil = (productoPorValor(sIn && sIn.pv) || {}).ancho || 0;
+        s.tornillosManual = !!(sIn && sIn.tornillosCantManual != null && sIn.tornillosCantManual !== '');
       });
     }
     const pagoTxt = S.pago === 'efectivo' ? 'Contado, efectivo USD' : 'Bolívares a tasa BCV';
@@ -806,21 +821,41 @@ const Cotizador = (() => {
       filas.push('<tr class="seccion-head-row" style="background:var(--red) !important"><td colspan="5"><strong>⚠ Un producto no tiene precio de lista confirmado — no se puede exportar ni entregar esta oferta hasta corregirlo.</strong></td></tr>');
     }
     if (multi) {
+      // Si hay flashings "Detallado" (globales, ver motor), reemplazan el estimado por sección —
+      // la fila de Remates de cada sección se muestra en 0 (coincide con lo que de verdad se cobra;
+      // el importe real aparece una sola vez, en el bloque global de abajo).
+      const flashingsGlobales = Array.isArray(r.rematesDetalle) && r.rematesDetalle.length > 0;
       r.secciones.forEach((s) => {
-        const subtotalSeccion = s.materialImporte + s.tornillosImporte + s.rematesImporte;
+        const rematesImporteSeccion = flashingsGlobales ? 0 : s.rematesImporte;
+        const subtotalSeccion = s.materialImporte + s.tornillosImporte + rematesImporteSeccion;
         const um = unidadMaterial(s.modo, s.anchoUtil, s.areaConDesp, s.precioM2);
         filas.push(`<tr class="seccion-head-row"><td colspan="5"><strong>— ${esc(s.nombre)} —</strong></td></tr>`);
         filas.push(`<tr><td>Material${sub('')}</td>
           <td>${cantidadComoModo(s.modo, s.anchoUtil, s.area)} + ${s.desperdicioPct}% desperdicio<span class="badge-est">calculado</span></td>
           <td class="r">${um.cantidadTxt}</td><td class="r">US$ ${fmt(um.precioValor)}${um.precioSufijo}</td><td class="r">US$ ${fmt(s.materialImporte)}</td></tr>`);
         filas.push(`<tr><td>Fijaciones${sub(nombreTornillo)}</td>
-          <td>${s.tornillosPorM2} unid./m²<span class="badge-est">estimado</span></td>
+          <td>${s.tornillosManual ? '' : s.tornillosPorM2 + ' unid./m²'}<span class="badge-est">${s.tornillosManual ? 'cantidad manual (de la Calculadora)' : 'estimado'}</span></td>
           <td class="r">${s.tornillosCant.toLocaleString('es-VE')} unid.</td><td class="r">US$ ${fmt(s.tornilloPrecio)}</td><td class="r">US$ ${fmt(s.tornillosImporte)}</td></tr>`);
-        filas.push(`<tr><td>Remates / Flashings${sub(nombreRemate)}</td>
-          <td>${s.rematesMl.toLocaleString('es-VE')} ml → ${s.piezasRemate} pieza(s)<span class="badge-est">estimado</span></td>
-          <td class="r">${s.rematesMlFacturable.toLocaleString('es-VE')} ml</td><td class="r">US$ ${fmt(s.rematePrecio)}</td><td class="r">US$ ${fmt(s.rematesImporte)}</td></tr>`);
+        if (flashingsGlobales) {
+          filas.push(`<tr><td>Remates / Flashings${sub('ver bloque "Flashings (catálogo real)" al final — es global, no por sección')}</td>
+            <td>—<span class="badge-est">incluido abajo</span></td>
+            <td class="r">—</td><td class="r">—</td><td class="r">US$ 0,00</td></tr>`);
+        } else {
+          filas.push(`<tr><td>Remates / Flashings${sub(nombreRemate)}</td>
+            <td>${s.rematesMl.toLocaleString('es-VE')} ml → ${s.piezasRemate} pieza(s)<span class="badge-est">estimado</span></td>
+            <td class="r">${s.rematesMlFacturable.toLocaleString('es-VE')} ml</td><td class="r">US$ ${fmt(s.rematePrecio)}</td><td class="r">US$ ${fmt(s.rematesImporte)}</td></tr>`);
+        }
         filas.push(`<tr class="seccion-subtotal-row"><td colspan="4">Subtotal de esta sección (sin montaje ni flete, prorrateables)</td><td class="r">US$ ${fmt(subtotalSeccion)}</td></tr>`);
       });
+      if (flashingsGlobales) {
+        filas.push('<tr class="seccion-head-row"><td colspan="5"><strong>— Flashings (catálogo real) — aplica a toda la oferta —</strong></td></tr>');
+        r.rematesDetalle.forEach((d) => {
+          const f = cat.flashings.find((x) => x.codigo === d.codigo);
+          filas.push(`<tr><td>Flashing ${esc(d.codigo)}${sub(f ? f.descripcion : '')}</td><td>Catálogo real<span class="badge-est">valor de lista</span></td>
+            <td class="r">${d.piezas} pieza(s)</td><td class="r">US$ ${fmt(d.precioUnit)}</td><td class="r">US$ ${fmt(d.piezas * d.precioUnit)}</td></tr>`);
+        });
+        filas.push(`<tr class="seccion-subtotal-row"><td colspan="4">Subtotal de flashings (global)</td><td class="r">US$ ${fmt(r.rematesImporte)}</td></tr>`);
+      }
     } else {
       const um = unidadMaterial(S.modo, p.ancho || 0, r.areaConDesp, r.precioM2);
       filas.push(
@@ -984,14 +1019,27 @@ const Cotizador = (() => {
     }
     rows.push(xRow(['Concepto', 'Detalle', 'Cantidad', 'Precio unit. (US$)', 'Importe (US$)'].map((h) => xCell(h, 'sHeader'))));
     if (d.secciones) {
+      const flashingsGlobales = Array.isArray(d.rematesDetalle) && d.rematesDetalle.length > 0;
       d.secciones.forEach((s) => {
         rows.push(xRow([xCell('— ' + s.nombre + ' —', 'sBold')]));
         const um = unidadMaterial(s.modo, s.anchoUtil, s.areaConDesp, s.precioM2);
+        const rematesImporteSeccion = flashingsGlobales ? 0 : s.rematesImporte;
         rows.push(xRow([xCell('Material'), xCell(''), xCell(um.cantidadTxt), xCell(um.precioValor, 'sMoney', 'Number'), xCell(s.materialImporte, 'sMoney', 'Number')]));
-        rows.push(xRow([xCell('Fijaciones'), xCell(''), xCell(`${s.tornillosCant} unid.`), xCell(s.tornilloPrecio, 'sMoney', 'Number'), xCell(s.tornillosImporte, 'sMoney', 'Number')]));
-        rows.push(xRow([xCell('Remates / Flashings'), xCell(''), xCell(`${s.rematesMlFacturable} ml`), xCell(s.rematePrecio, 'sMoney', 'Number'), xCell(s.rematesImporte, 'sMoney', 'Number')]));
-        rows.push(xRow([xCell(''), xCell(''), xCell(''), xCell('Subtotal de esta sección', 'sLabel'), xCell(s.materialImporte + s.tornillosImporte + s.rematesImporte, 'sMoney', 'Number')]));
+        rows.push(xRow([xCell('Fijaciones'), xCell(s.tornillosManual ? 'cantidad manual' : 'estimado'), xCell(`${s.tornillosCant} unid.`), xCell(s.tornilloPrecio, 'sMoney', 'Number'), xCell(s.tornillosImporte, 'sMoney', 'Number')]));
+        if (flashingsGlobales) {
+          rows.push(xRow([xCell('Remates / Flashings'), xCell('ver bloque global al final'), xCell('—'), xCell(''), xCell(0, 'sMoney', 'Number')]));
+        } else {
+          rows.push(xRow([xCell('Remates / Flashings'), xCell(''), xCell(`${s.rematesMlFacturable} ml`), xCell(s.rematePrecio, 'sMoney', 'Number'), xCell(s.rematesImporte, 'sMoney', 'Number')]));
+        }
+        rows.push(xRow([xCell(''), xCell(''), xCell(''), xCell('Subtotal de esta sección', 'sLabel'), xCell(s.materialImporte + s.tornillosImporte + rematesImporteSeccion, 'sMoney', 'Number')]));
       });
+      if (flashingsGlobales) {
+        rows.push(xRow([xCell('— Flashings (catálogo real) — aplica a toda la oferta —', 'sBold')]));
+        d.rematesDetalle.forEach((df) => {
+          rows.push(xRow([xCell(`Flashing ${df.codigo}`), xCell('Catálogo real'), xCell(`${df.piezas} pieza(s)`), xCell(df.precioUnit, 'sMoney', 'Number'), xCell(df.piezas * df.precioUnit, 'sMoney', 'Number')]));
+        });
+        rows.push(xRow([xCell(''), xCell(''), xCell(''), xCell('Subtotal de flashings (global)', 'sLabel'), xCell(d.rematesImporte, 'sMoney', 'Number')]));
+      }
     } else {
       {
         const um = unidadMaterial(d.modo, d.anchoUtil, d.areaConDesp, d.precioM2);
@@ -1326,34 +1374,24 @@ const Cotizador = (() => {
   // Calculadora mandó 2+ áreas, se aplican como 2+ secciones (una por área, con su propio
   // producto); si mandó 1 sola, se aplica al ítem único y se desactivan las secciones si estaban
   // encendidas (en vez de bloquear).
-  function aplicarCalculoExterno({ areaM2, tornillosCant, secciones, flashings }) {
+  function aplicarCalculoExterno({ areaM2, tornillosCant, secciones, flashings, tornillosFlashingsSinPrecio }) {
     if (!root) return;
     if ($('calcOrigenHint')) $('calcOrigenHint').hidden = false;
     const n = Array.isArray(secciones) ? secciones.length : 0;
     if (n >= 2) {
       if (!chk('incluirSecciones')) $('incluirSecciones').checked = true;
+      // Tornillos EXACTOS de esta sección (cantLam × correas × clipsPorCruce, ya calculado en la
+      // Calculadora) — ya no una tasa US$/m² aproximada repartida entre todas (feedback real nov
+      // 2026: "lo que aparece en la Calculadora debe ser lo mismo que en el Cotizador").
       S.secciones = secciones.map((s) => {
         const pv = s.pv || productosPlanos()[0]?.value || '';
         const am = areaComoModo(pv, s.areaM2 || 0, s.ml);
-        return { id: 's' + Math.random().toString(36).slice(2, 8), nombre: s.nombre || '', pv, rematesMl: 0, ...am };
+        const tornillosCantManual = s.tornillos != null ? Math.round(s.tornillos) : '';
+        return { id: 's' + Math.random().toString(36).slice(2, 8), nombre: s.nombre || '', pv, rematesMl: 0, tornillosCantManual, ...am };
       });
       toggleSecciones();
       renderSecciones();
-      // El Cotizador no soporta tornillos por sección todavía (fuera de alcance, ver CLAUDE.md) —
-      // se aproxima con una tasa/m² equivalente que reproduce el total correcto de tornillos,
-      // aunque no reparta exactamente igual que la Calculadora entre secciones con distinta
-      // correas/ancho útil.
-      const tasa = areaM2 > 0 ? tornillosCant / areaM2 : 0;
-      $('tornillos').value = Math.round(tasa * 100) / 100;
-      // Los flashings detallados por pieza solo se soportan en modo de un solo ítem (ver motor,
-      // calcularOferta()) — con secciones no hay dónde aplicarlos todavía, así que se avisa en
-      // vez de aplicar algo que luego no se refleje en el total.
-      const avisoFlashings = Array.isArray(flashings) && flashings.length
-        ? ' Los flashings calculados NO se aplicaron (el modo detallado por pieza todavía no funciona junto con secciones) — agrégalos a mano si hacen falta.'
-        : '';
-      toast(`Aplicado como ${n} secciones. Los tornillos se repartieron como una tasa equivalente por m² (el Cotizador no tiene tornillos por sección todavía) — revisa el total.${avisoFlashings}`);
-      calcular();
-      return;
+      toast(`Aplicado como ${n} secciones, con sus tornillos exactos de la Calculadora.`);
     } else {
       if (chk('incluirSecciones')) { $('incluirSecciones').checked = false; toggleSecciones(); }
       const unaSeccion = n === 1 ? secciones[0] : null;
@@ -1383,16 +1421,28 @@ const Cotizador = (() => {
       $('tornillosCantManual').value = Math.round(tornillosCant);
     }
     // Remates/flashings calculados en la Calculadora (punto 4 del feedback de Violeta) — antes no
-    // se mandaban nunca, así que la oferta se quedaba con el modo "Estimado" en 0 ml / US$ 0.
+    // se mandaban nunca, así que la oferta se quedaba con el modo "Estimado" en 0 ml / US$ 0. En
+    // secciones son GLOBALES (ver motor, calcularOferta()) — ya no se bloquean.
     if (Array.isArray(flashings) && flashings.length && cat.flashings.length) {
-      $('remateModoToggle') && (S.remateModo = 'detallado');
-      marcar('remateModoToggle', 'detallado');
+      S.remateModo = 'detallado';
+      if ($('remateModoToggle')) marcar('remateModoToggle', 'detallado');
       if ($('remateEstimadoBox')) $('remateEstimadoBox').hidden = true;
       if ($('remateDetalladoBox')) $('remateDetalladoBox').hidden = false;
       S.flashingsItems = flashings
         .map((f) => ({ id: 'f' + Math.random().toString(36).slice(2, 8), idx: cat.flashings.findIndex((c) => c.codigo === f.codigo), piezas: f.piezas }))
         .filter((f) => f.idx >= 0 && f.piezas > 0);
       if (S.flashingsItems.length) renderFlashings();
+    }
+    // Tornillos para flashings: fijación distinta de la de lámina/panel, sin precio identificado
+    // todavía en el catálogo (pendiente, ver CLAUDE.md) — se deja visible como partida con precio
+    // en US$0 en vez de perderse en silencio; si ya existe (envíos repetidos), se actualiza la
+    // cantidad en vez de duplicarla.
+    if (tornillosFlashingsSinPrecio > 0) {
+      const MARCA = 'Tornillos para flashings (completar precio real)';
+      const existente = S.partidas.find((x) => x.descripcion === MARCA);
+      if (existente) existente.cantidad = tornillosFlashingsSinPrecio;
+      else S.partidas.push({ ...nuevaPartida(), descripcion: MARCA, cantidad: tornillosFlashingsSinPrecio, unidad: 'unid', precioUnit: 0 });
+      renderPartidas();
     }
     calcular();
   }

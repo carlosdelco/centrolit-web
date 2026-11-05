@@ -138,8 +138,26 @@
       ? sumarSecciones(i.secciones.map((s) => ({ ...s, pago: s.pago || pago, preciosManuales: s.preciosManuales || man })), p)
       : calcularItem({ producto: i.producto, pago, area: i.area, desperdicioPct: i.desperdicioPct, tornillosPorM2: i.tornillosPorM2, tornillosCantManual: i.tornillosCantManual, rematesMl: i.rematesMl, rematesDetalle: i.rematesDetalle, preciosManuales: man }, p);
 
-    const { area, desperdicioPct, areaConDesp, precioM2, materialImporte, precioFaltante, tornillosPorM2, tornillosCant, tornilloPrecio, tornillosImporte, rematesMl, piezasRemate, rematesMlFacturable, rematePrecio, rematesImporte, rematesDetalle } = base;
+    const { area, desperdicioPct, areaConDesp, precioM2, materialImporte, precioFaltante, tornillosPorM2, tornillosCant, tornilloPrecio, tornillosImporte, rematesMl } = base;
+    let { piezasRemate, rematesMlFacturable, rematePrecio, rematesImporte, rematesDetalle } = base;
     const secciones = multi ? base.secciones : null;
+
+    // Remates "Detallado" (catálogo real) en modo secciones son GLOBALES, no por sección — la
+    // Calculadora no asocia cada flashing a un área concreta (feedback real nov 2026: "lo que
+    // aparece en la Calculadora debe ser lo mismo que en el Cotizador"). Cuando viene informado,
+    // SUSTITUYE por completo el remate "Estimado" que cada sección pudiera traer (mismo criterio
+    // que ya usa calcularItem() en modo de un solo ítem: detalle reemplaza, no se suma).
+    if (multi && Array.isArray(i.rematesDetalle)) {
+      const detalle = i.rematesDetalle.filter((d) => n(d.piezas) > 0);
+      if (detalle.length) {
+        const piezaM = p.piezaRemateM || 2.4;
+        piezasRemate = detalle.reduce((a, d) => a + n(d.piezas), 0);
+        rematesMlFacturable = +(piezasRemate * piezaM).toFixed(6);
+        rematesImporte = detalle.reduce((a, d) => a + n(d.piezas) * n(d.precioUnit), 0);
+        rematePrecio = piezasRemate > 0 ? rematesImporte / piezasRemate : 0;
+        rematesDetalle = detalle;
+      }
+    }
 
     const incluirMontaje = !!(i.montaje && i.montaje.incluir);
     const incluirFlete = !!(i.flete && i.flete.incluir);
