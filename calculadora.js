@@ -252,8 +252,13 @@ const Calculadora = (() => {
         if (rl.totalM2 <= 0 && tornillosCant <= 0) { toast('No hay nada que enviar todavía.', 'error'); return; }
         // Una entrada por área con m² > 0 — el Cotizador decide con esto si aplica como ítem
         // único (1 área) o como varias secciones (2+), ver Cotizador.aplicarCalculoExterno().
+        // ml = r.ml (cantLam × largoLam, calculado aquí mismo arriba) debe llegar EXACTO al
+        // Cotizador — antes solo se mandaba areaM2 (la referencia geométrica, fondo×largo) y el
+        // Cotizador la volvía a dividir entre el ancho útil, perdiendo el redondeo hacia arriba de
+        // Cant. láminas y dando un número distinto al que ya se veía aquí (reportado por el
+        // usuario: 41,40 ml calculados aquí vs. 38,33 ml recibidos del lado del Cotizador).
         const secciones = rl.filas
-          .map((r, i) => ({ nombre: r.nombre, areaM2: r.m2, pv: filasLam[i] ? filasLam[i].pv : '' }))
+          .map((r, i) => ({ nombre: r.nombre, areaM2: r.m2, ml: r.ml, pv: filasLam[i] ? filasLam[i].pv : '' }))
           .filter((s) => s.areaM2 > 0);
         // Flashings calculados aquí (punto 4 del feedback de Violeta) — antes no se mandaban,
         // así que el Cotizador se quedaba en modo "Estimado" con 0 ml / US$ 0.

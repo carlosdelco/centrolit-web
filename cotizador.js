@@ -314,6 +314,24 @@ const Cotizador = (() => {
     return p && p.ancho ? 'ml' : 'm2';
   }
 
+  // El motor siempre calcula material en m² (es la unidad común para desperdicio/montaje), pero el
+  // documento debe MOSTRAR la unidad real de cotización: ml para paneles, m² para Standing Seam
+  // (punto de feedback de Violeta, nov 2026: "en la calculadora sí aparece en metro lineal...
+  // debería ser lo mismo en el detalle del Cotizador"). precioM2 ya es US$/m² (precio de lista
+  // dividido por ancho útil, ver precioM2Lista()); multiplicarlo de vuelta por anchoUtil da el
+  // precio de lista original por ml, sin tener que volver a consultar el producto.
+  function cantidadComoModo(modo, anchoUtil, areaValor) {
+    return modo === 'ml' && anchoUtil > 0 ? `${(areaValor / anchoUtil).toFixed(2)} ml` : `${areaValor.toFixed(2)} m²`;
+  }
+  function unidadMaterial(modo, anchoUtil, areaConDesp, precioM2) {
+    const esMl = modo === 'ml' && anchoUtil > 0;
+    return {
+      cantidadTxt: cantidadComoModo(modo, anchoUtil, areaConDesp),
+      precioValor: esMl ? precioM2 * anchoUtil : precioM2,
+      precioSufijo: esMl ? '/ml' : '/m²',
+    };
+  }
+
   function nuevaSeccion() {
     const pv = productosPlanos()[0]?.value || '';
     return { id: 's' + Math.random().toString(36).slice(2, 8), nombre: '', pv, modo: modoDeProducto(productoPorValor(pv)), area: 0, mlLargo: 0, mlAncho: 0, rematesMl: 0 };
@@ -741,6 +759,17 @@ const Cotizador = (() => {
       remate: { efectivo: params.remate_efectivo, bcv: params.remate_bcv },
       piezaRemateM: params.pieza_remate_m,
     });
+    // El motor siempre devuelve el material en m² — para mostrarlo en ml cuando el producto se
+    // cotiza así (paneles, punto de feedback de Violeta: "en la calculadora sí aparece en metro
+    // lineal... debería ser lo mismo en el detalle del Cotizador") hace falta el modo/ancho útil
+    // de cada sección, que el motor no conoce (solo recibe área ya convertida a m²).
+    if (multi) {
+      r.secciones.forEach((s, idx) => {
+        const sIn = S.secciones[idx];
+        s.modo = sIn ? sIn.modo : 'm2';
+        s.anchoUtil = (productoPorValor(sIn && sIn.pv) || {}).ancho || 0;
+      });
+    }
     const pagoTxt = S.pago === 'efectivo' ? 'Contado, efectivo USD' : 'Bolívares a tasa BCV';
     const hoy = new Date().toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' });
     const nombreTornillo = params.tornillo_nombre || 'Tornillo autotaladrante — fijación estándar';
@@ -757,6 +786,7 @@ const Cotizador = (() => {
       pago: pagoTxt, tipoObra: val('tipoObra') || '—', comentarios: val('comentarios').trim(),
       productoNombre: multi ? `Varias secciones (${r.secciones.length})` : p.n,
       catLabel: multi ? 'Secciones' : categoria, ancho: multi ? null : p.ancho,
+      modo: multi ? null : S.modo, anchoUtil: multi ? null : (p.ancho || 0),
     };
 
     const emp = S.empresa;
@@ -778,10 +808,11 @@ const Cotizador = (() => {
     if (multi) {
       r.secciones.forEach((s) => {
         const subtotalSeccion = s.materialImporte + s.tornillosImporte + s.rematesImporte;
+        const um = unidadMaterial(s.modo, s.anchoUtil, s.areaConDesp, s.precioM2);
         filas.push(`<tr class="seccion-head-row"><td colspan="5"><strong>— ${esc(s.nombre)} —</strong></td></tr>`);
         filas.push(`<tr><td>Material${sub('')}</td>
-          <td>${s.area.toLocaleString('es-VE')} m² + ${s.desperdicioPct}% desperdicio<span class="badge-est">calculado</span></td>
-          <td class="r">${s.areaConDesp.toFixed(2)} m²</td><td class="r">US$ ${fmt(s.precioM2)}/m²</td><td class="r">US$ ${fmt(s.materialImporte)}</td></tr>`);
+          <td>${cantidadComoModo(s.modo, s.anchoUtil, s.area)} + ${s.desperdicioPct}% desperdicio<span class="badge-est">calculado</span></td>
+          <td class="r">${um.cantidadTxt}</td><td class="r">US$ ${fmt(um.precioValor)}${um.precioSufijo}</td><td class="r">US$ ${fmt(s.materialImporte)}</td></tr>`);
         filas.push(`<tr><td>Fijaciones${sub(nombreTornillo)}</td>
           <td>${s.tornillosPorM2} unid./m²<span class="badge-est">estimado</span></td>
           <td class="r">${s.tornillosCant.toLocaleString('es-VE')} unid.</td><td class="r">US$ ${fmt(s.tornilloPrecio)}</td><td class="r">US$ ${fmt(s.tornillosImporte)}</td></tr>`);
@@ -791,10 +822,11 @@ const Cotizador = (() => {
         filas.push(`<tr class="seccion-subtotal-row"><td colspan="4">Subtotal de esta sección (sin montaje ni flete, prorrateables)</td><td class="r">US$ ${fmt(subtotalSeccion)}</td></tr>`);
       });
     } else {
+      const um = unidadMaterial(S.modo, p.ancho || 0, r.areaConDesp, r.precioM2);
       filas.push(
         `<tr><td><strong>${esc(p.n)}</strong>${sub(categoria + (p.ancho ? ' · ancho útil ' + p.ancho + ' m' : ''))}</td>
-          <td>${r.area.toLocaleString('es-VE')} m² + ${r.desperdicioPct}% desperdicio<span class="badge-est">${modPrecios ? 'precio modificado' : 'calculado'}</span></td>
-          <td class="r">${r.areaConDesp.toFixed(2)} m²</td><td class="r">US$ ${fmt(r.precioM2)}/m²</td><td class="r">US$ ${fmt(r.materialImporte)}</td></tr>`,
+          <td>${cantidadComoModo(S.modo, p.ancho || 0, r.area)} + ${r.desperdicioPct}% desperdicio<span class="badge-est">${modPrecios ? 'precio modificado' : 'calculado'}</span></td>
+          <td class="r">${um.cantidadTxt}</td><td class="r">US$ ${fmt(um.precioValor)}${um.precioSufijo}</td><td class="r">US$ ${fmt(r.materialImporte)}</td></tr>`,
         `<tr><td><strong>Fijaciones</strong>${sub(nombreTornillo)}</td>
           <td>${r.tornillosPorM2} unid./m²<span class="badge-est">estimado</span></td>
           <td class="r">${r.tornillosCant.toLocaleString('es-VE')} unid.</td><td class="r">US$ ${fmt(r.tornilloPrecio)}</td><td class="r">US$ ${fmt(r.tornillosImporte)}</td></tr>`
@@ -954,16 +986,20 @@ const Cotizador = (() => {
     if (d.secciones) {
       d.secciones.forEach((s) => {
         rows.push(xRow([xCell('— ' + s.nombre + ' —', 'sBold')]));
-        rows.push(xRow([xCell('Material'), xCell(''), xCell(`${s.areaConDesp.toFixed(2)} m²`), xCell(s.precioM2, 'sMoney', 'Number'), xCell(s.materialImporte, 'sMoney', 'Number')]));
+        const um = unidadMaterial(s.modo, s.anchoUtil, s.areaConDesp, s.precioM2);
+        rows.push(xRow([xCell('Material'), xCell(''), xCell(um.cantidadTxt), xCell(um.precioValor, 'sMoney', 'Number'), xCell(s.materialImporte, 'sMoney', 'Number')]));
         rows.push(xRow([xCell('Fijaciones'), xCell(''), xCell(`${s.tornillosCant} unid.`), xCell(s.tornilloPrecio, 'sMoney', 'Number'), xCell(s.tornillosImporte, 'sMoney', 'Number')]));
         rows.push(xRow([xCell('Remates / Flashings'), xCell(''), xCell(`${s.rematesMlFacturable} ml`), xCell(s.rematePrecio, 'sMoney', 'Number'), xCell(s.rematesImporte, 'sMoney', 'Number')]));
         rows.push(xRow([xCell(''), xCell(''), xCell(''), xCell('Subtotal de esta sección', 'sLabel'), xCell(s.materialImporte + s.tornillosImporte + s.rematesImporte, 'sMoney', 'Number')]));
       });
     } else {
-      rows.push(xRow([
-        xCell(d.productoNombre), xCell(`${d.catLabel}${d.ancho ? ' · ancho útil ' + d.ancho + ' m' : ''}`),
-        xCell(`${d.areaConDesp.toFixed(2)} m²`), xCell(d.precioM2, 'sMoney', 'Number'), xCell(d.materialImporte, 'sMoney', 'Number'),
-      ]));
+      {
+        const um = unidadMaterial(d.modo, d.anchoUtil, d.areaConDesp, d.precioM2);
+        rows.push(xRow([
+          xCell(d.productoNombre), xCell(`${d.catLabel}${d.ancho ? ' · ancho útil ' + d.ancho + ' m' : ''}`),
+          xCell(um.cantidadTxt), xCell(um.precioValor, 'sMoney', 'Number'), xCell(d.materialImporte, 'sMoney', 'Number'),
+        ]));
+      }
       rows.push(xRow([
         xCell('Fijaciones'), xCell('Tornillo autotaladrante — fijación estándar'),
         xCell(`${d.tornillosCant} unid.`), xCell(d.tornilloPrecio, 'sMoney', 'Number'), xCell(d.tornillosImporte, 'sMoney', 'Number'),
@@ -1268,11 +1304,17 @@ const Cotizador = (() => {
   // (nov 2026): forzar siempre m² aquí, aunque daba el mismo total en US$, mostraba el toggle
   // "m²" para un producto que el equipo SIEMPRE piensa en ml (Maxipanel, TP3/TP4...), que era
   // justo la "confusión sobre de qué lado hacer el cálculo" que reportó.
-  function areaComoModo(pv, areaM2) {
+  // mlDirecto = el ml que ya calculó la Calculadora (cantLam × largoLam, con el redondeo hacia
+  // arriba de Cant. láminas ya aplicado) — se usa TAL CUAL si viene informado. Solo si no viene
+  // (p. ej. entradas antiguas sin ese campo) se re-deriva de areaM2, lo que PIERDE el redondeo por
+  // lámina completa y da un número distinto al que el usuario ya vio en la Calculadora (bug real
+  // reportado, nov 2026: 41,40 ml calculados ahí vs. 38,33 ml que llegaban aquí).
+  function areaComoModo(pv, areaM2, mlDirecto) {
     const p = productoPorValor(pv);
     const modo = modoDeProducto(p);
     if (modo === 'ml' && p && p.ancho > 0) {
-      return { modo: 'ml', area: 0, mlAncho: p.ancho, mlLargo: Math.round((areaM2 / p.ancho) * 100) / 100 };
+      const mlLargo = mlDirecto > 0 ? mlDirecto : areaM2 / p.ancho;
+      return { modo: 'ml', area: 0, mlAncho: p.ancho, mlLargo: Math.round(mlLargo * 100) / 100 };
     }
     return { modo: 'm2', area: Math.round(areaM2 * 100) / 100, mlAncho: 0, mlLargo: 0 };
   }
@@ -1292,7 +1334,7 @@ const Cotizador = (() => {
       if (!chk('incluirSecciones')) $('incluirSecciones').checked = true;
       S.secciones = secciones.map((s) => {
         const pv = s.pv || productosPlanos()[0]?.value || '';
-        const am = areaComoModo(pv, s.areaM2 || 0);
+        const am = areaComoModo(pv, s.areaM2 || 0, s.ml);
         return { id: 's' + Math.random().toString(36).slice(2, 8), nombre: s.nombre || '', pv, rematesMl: 0, ...am };
       });
       toggleSecciones();
@@ -1325,7 +1367,7 @@ const Cotizador = (() => {
           onProducto();
         } else pv = null;
       }
-      const am = pv ? areaComoModo(pv, areaM2) : { modo: 'm2', area: Math.round(areaM2 * 100) / 100, mlAncho: 0, mlLargo: 0 };
+      const am = pv ? areaComoModo(pv, areaM2, unaSeccion && unaSeccion.ml) : { modo: 'm2', area: Math.round(areaM2 * 100) / 100, mlAncho: 0, mlLargo: 0 };
       S.modo = am.modo;
       marcar('medidaToggle', am.modo);
       $('areaDirectaBox').hidden = am.modo !== 'm2';
