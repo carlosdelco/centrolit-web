@@ -6,7 +6,7 @@ const Cotizador = (() => {
   const TIPOS_OBRA_DEFECTO = ['Nave industrial / galpón', 'Centro comercial / local comercial', 'Institucional', 'Vivienda / residencial', 'Retechado', 'Otro'];
 
   let root, cat, params, textos, tiposObra, puedeInterna;
-  let S = { pago: 'efectivo', modo: 'm2', vista: 'cliente', imagen: null, plano: null, autoComentario: '', autoNumero: '', secciones: [], remateModo: 'estimado', flashingsItems: [], partidas: [] };
+  let S = { pago: 'efectivo', modo: 'm2', vista: 'cliente', imagen: null, plano: null, autoComentario: '', autoNumero: '', secciones: [], remateModo: 'estimado', flashingsItems: [], partidas: [], fletes: [] };
   let ultima = null;
 
   const $ = (id) => root.querySelector('#' + id);
@@ -94,10 +94,11 @@ const Cotizador = (() => {
       <label class="chk"><input type="checkbox" id="modPrecios"> Modificar precios de lista (caso a caso)</label>
       <div class="manual-box" id="preciosManualBox" hidden>
         <div class="row2">
-          <div><label>Material (US$/m²)</label><input type="number" id="precioMaterialManual" step="0.01" min="0"></div>
-          <div><label>Tornillo (US$/unid.)</label><input type="number" id="precioTornilloManual" step="0.01" min="0"></div>
+          <div><label id="precioMaterialManualLabel">Material (US$/m²)</label><input type="number" id="precioMaterialManual" step="0.01" min="0"></div>
+          <div><label>Kit de fijación (US$/unid.)</label><input type="number" id="precioTornilloManual" step="0.01" min="0"></div>
         </div>
-        <label>Remate (US$/ml)</label><input type="number" id="precioRemateManual" step="0.01" min="0">
+        <label>Remate — modo Estimado (US$/ml)</label><input type="number" id="precioRemateManual" step="0.01" min="0">
+        <div class="hint" id="precioRemateManualHint">Solo aplica si "Remates/flashings" está en modo Estimado (ml). En modo Detallado, cada flashing tiene su propio precio editable en su propia lista.</div>
         <div class="hint">Sustituyen a la lista oficial solo para esta oferta. En modo secciones se aplican a todas por igual.</div>
       </div>
     </div>
@@ -137,6 +138,9 @@ const Cotizador = (() => {
           <div><label>Montaje remates (US$/ml)</label><input type="number" id="precioMontajeMl" step="0.01" min="0" value="0"></div>
         </div>
         <div class="hint">Precargado solo para productos con precio de montaje en la lista. Si no, se ingresa a mano.</div>
+        <label>m² de montaje — manual (opcional, vacío = usa el área calculada del material)</label>
+        <input type="number" id="montajeAreaManual" step="1" min="0" placeholder="auto">
+        <div class="hint">Úsalo cuando en obra hay que cortar una lámina para que quede a ras de la estructura — el m² real de montaje puede no coincidir con el calculado. No afecta el precio del material, solo el de montaje.</div>
         <div class="row2">
           <div><label>Días de grúa</label><input type="number" id="montajeDiasGrua" step="1" min="0" value="0"></div>
           <div><label>Precio grúa (US$/día)</label><input type="number" id="montajePrecioGruaDia" step="1" min="0" value="0"></div>
@@ -149,8 +153,8 @@ const Cotizador = (() => {
       </div>
       <label class="chk"><input type="checkbox" id="incluirFlete"> Incluir flete en esta oferta</label>
       <div class="manual-box" id="fleteBox" hidden>
-        <label>Flete (US$, estimado para este despacho)</label><input type="number" id="precioFlete" step="1" min="0" value="0">
-        <div class="hint">El flete varía por destino: se ingresa caso a caso.</div>
+        <div id="fletesLista"></div>
+        <div class="hint">El flete varía por destino: se ingresa caso a caso. Agrega una línea por cada vehículo cuando usas varios con precios distintos (p. ej. 2 gandolas + 1 camión 750).</div>
       </div>
       <div class="row2">
         <div><label>IVA (%)</label><input type="number" id="iva" min="0" step="0.5"></div>
@@ -368,19 +372,31 @@ const Cotizador = (() => {
 
   // ---------- Flashings detallados (catálogo real, punto 4 del feedback) ----------
   function nuevoFlashingItem() {
-    return { id: 'f' + Math.random().toString(36).slice(2, 8), idx: 0, piezas: 0 };
+    return { id: 'f' + Math.random().toString(36).slice(2, 8), idx: 0, piezas: 0, precioManual: '' };
+  }
+  // Precio efectivo de un flashing: el manual si se puso uno, si no el del catálogo real — pedido
+  // real del equipo comercial (nov 2026): "al igual que material y tornillos, el precio de los
+  // remates también debería poder cambiarse manualmente" (antes solo funcionaba en modo Estimado,
+  // no en Detallado, donde cada pieza venía fija del catálogo sin forma de corregirla caso a caso).
+  function precioFlashingEfectivo(it, f) {
+    return it.precioManual !== '' && it.precioManual != null ? parseFloat(it.precioManual) || 0 : (f ? f[S.pago] : 0);
   }
   function renderFlashings() {
     const cont = $('flashingsLista');
     if (!cont) return;
-    cont.innerHTML = S.flashingsItems.map((it, i) => `
+    cont.innerHTML = S.flashingsItems.map((it, i) => {
+      const f = cat.flashings[it.idx];
+      return `
       <div class="flashing-row" data-idx="${i}">
         <div class="row2">
-          <div><label>Flashing</label><select class="fl-codigo" data-idx="${i}">${cat.flashings.map((f, fi) => `<option value="${fi}" ${fi === it.idx ? 'selected' : ''}>${esc(f.codigo)} — ${esc(f.descripcion)} (desarrollo ${esc(f.desarrollo)} cm) — US$ ${fmt(f.efectivo)}</option>`).join('')}</select></div>
+          <div><label>Flashing</label><select class="fl-codigo" data-idx="${i}">${cat.flashings.map((fc, fi) => `<option value="${fi}" ${fi === it.idx ? 'selected' : ''}>${esc(fc.codigo)} — ${esc(fc.descripcion)} (desarrollo ${esc(fc.desarrollo)} cm) — US$ ${fmt(fc.efectivo)}</option>`).join('')}</select></div>
           <div><label>Piezas</label><input type="number" class="fl-piezas" data-idx="${i}" value="${it.piezas || 0}" min="0" step="1"></div>
         </div>
+        <label>Precio unit. (US$, opcional — vacío = precio de catálogo real US$ ${fmt(f ? f[S.pago] : 0)})</label>
+        <input type="number" class="fl-precio" data-idx="${i}" value="${it.precioManual || ''}" min="0" step="0.01" placeholder="US$ ${fmt(f ? f[S.pago] : 0)}">
         <button type="button" class="link fl-eliminar" data-idx="${i}">eliminar ✕</button>
-      </div>`).join('') + '<button type="button" class="link" id="agregarFlashing">+ agregar otro flashing</button>';
+      </div>`;
+    }).join('') + '<button type="button" class="link" id="agregarFlashing">+ agregar otro flashing</button>';
   }
 
   // ---------- Partidas adicionales: líneas manuales para lo que no encaja en m²/ml ----------
@@ -406,6 +422,25 @@ const Cotizador = (() => {
         ${conCosto ? `<label>Costo unitario (US$, uso interno)</label><input type="number" class="pa-costo" data-idx="${idx}" value="${x.costoUnit || 0}" min="0" step="0.01">` : ''}
         <button type="button" class="link pa-eliminar" data-idx="${idx}">eliminar ✕</button>
       </div>`).join('') + '<button type="button" class="btn" id="agregarPartida">+ Agregar partida</button>';
+  }
+
+  // ---------- Flete: varias líneas (p. ej. 2 gandolas + 1 camión 750, cada una con su propio
+  // precio — feedback real, nov 2026, en vez de un monto único). ----------
+  function nuevoFlete() {
+    return { id: 'ft' + Math.random().toString(36).slice(2, 8), descripcion: '', cantidad: 1, precioUnit: 0 };
+  }
+  function renderFletes() {
+    const cont = $('fletesLista');
+    if (!cont) return;
+    cont.innerHTML = S.fletes.map((x, idx) => `
+      <div class="partida-row" data-idx="${idx}">
+        <div class="row2">
+          <div><label>Descripción</label><input type="text" class="ft-desc" data-idx="${idx}" value="${esc(x.descripcion)}" placeholder="Gandola 1, Camión 750…"></div>
+          <div><label>Cantidad</label><input type="number" class="ft-cant" data-idx="${idx}" value="${x.cantidad || 0}" min="0" step="1"></div>
+        </div>
+        <label>Precio (US$)</label><input type="number" class="ft-precio" data-idx="${idx}" value="${x.precioUnit || 0}" min="0" step="1">
+        <button type="button" class="link ft-eliminar" data-idx="${idx}">eliminar ✕</button>
+      </div>`).join('') + '<button type="button" class="btn" id="agregarFlete">+ Agregar otro flete</button>';
   }
 
   // Conserva lo escrito en el formulario cuando se refrescan los precios.
@@ -440,6 +475,7 @@ const Cotizador = (() => {
       $('remateDetalladoBox').hidden = S.remateModo !== 'detallado';
       if (S.remateModo === 'detallado') renderFlashings();
     }
+    if (chk('incluirFlete')) { if (S.fletes.length === 0) S.fletes.push(nuevoFlete()); renderFletes(); }
   }
 
   const boxDe = { modPrecios: 'preciosManualBox', incluirMontaje: 'montajeBox', incluirFlete: 'fleteBox', incluirImagen: 'imagenUploadBox', incluirPlano: 'planoUploadBox', incluirMargen: 'margenBox', tornillosManualChk: 'tornillosManualBox' };
@@ -467,6 +503,7 @@ const Cotizador = (() => {
     $('remateSeccionesHint').hidden = !on;
     if (on && S.secciones.length === 0) S.secciones.push(nuevaSeccion());
     if (on) renderSecciones();
+    if (chk('modPrecios')) precargarManuales(); else actualizarLabelMaterialManual();
   }
 
   function bind() {
@@ -482,6 +519,15 @@ const Cotizador = (() => {
       const idx = t.dataset.idx;
       if (idx !== undefined && t.classList.contains('fl-piezas')) {
         if (S.flashingsItems[idx]) S.flashingsItems[idx].piezas = t.value;
+      } else if (idx !== undefined && t.classList.contains('fl-precio')) {
+        if (S.flashingsItems[idx]) S.flashingsItems[idx].precioManual = t.value;
+      } else if (idx !== undefined && (t.classList.contains('ft-desc') || t.classList.contains('ft-cant') || t.classList.contains('ft-precio'))) {
+        const x = S.fletes[idx];
+        if (x) {
+          if (t.classList.contains('ft-desc')) x.descripcion = t.value;
+          else if (t.classList.contains('ft-cant')) x.cantidad = t.value;
+          else if (t.classList.contains('ft-precio')) x.precioUnit = t.value;
+        }
       } else if (idx !== undefined && S.secciones[idx]) {
         const s = S.secciones[idx];
         if (t.classList.contains('sec-nombre')) s.nombre = t.value;
@@ -539,6 +585,7 @@ const Cotizador = (() => {
         toggleBox(id);
         if (id === 'modPrecios' && chk(id)) precargarManuales();
         if (id === 'incluirMontaje' && chk(id)) precargarMontaje();
+        if (id === 'incluirFlete' && chk(id)) { if (S.fletes.length === 0) S.fletes.push(nuevoFlete()); renderFletes(); }
         if (id === 'incluirImagen' && !chk(id)) S.imagen = null;
         if (id === 'incluirPlano' && !chk(id)) { S.plano = null; actualizarPlanoHint(); }
         if (id === 'incluirMargen') { if (!chk(id)) setVista('cliente'); renderPartidas(); }
@@ -619,6 +666,18 @@ const Cotizador = (() => {
         calcular();
         return;
       }
+      if (e.target.classList.contains('ft-eliminar')) {
+        S.fletes.splice(+e.target.dataset.idx, 1);
+        renderFletes();
+        calcular();
+        return;
+      }
+      if (e.target.id === 'agregarFlete') {
+        S.fletes.push(nuevoFlete());
+        renderFletes();
+        calcular();
+        return;
+      }
       const tg = e.target.closest('.toggle button');
       if (tg) {
         const box = tg.parentElement.id;
@@ -628,6 +687,7 @@ const Cotizador = (() => {
           $('areaDirectaBox').hidden = S.modo !== 'm2';
           $('areaMlBox').hidden = S.modo !== 'ml';
           prefillAncho();
+          if (chk('modPrecios')) precargarManuales(); else actualizarLabelMaterialManual();
         }
         marcar(box, tg.dataset.v);
         calcular();
@@ -671,9 +731,25 @@ const Cotizador = (() => {
     if (S.modo === 'ml' && p.ancho && !val('mlAncho')) $('mlAncho').value = p.ancho;
   }
 
+  // El campo "Material" manual debe hablar en la MISMA unidad que ya se está mostrando/cotizando
+  // (ml para paneles, m² para Standing Seam) — antes siempre precargaba y leía el equivalente en
+  // m², así que quien escribía un precio pensando en US$/ml (p. ej. "Maxipanel a US$46/ml") veía un
+  // número distinto en la oferta (US$46 × ancho_util = US$48,30) porque el motor lo tomaba tal
+  // cual como US$/m² y la tabla lo multiplicaba de vuelta por ancho_util para mostrarlo en ml
+  // (bug real reportado, nov 2026). En modo secciones no hay un modo único (cada sección puede ser
+  // distinta), así que ahí se mantiene en US$/m² como siempre — se avisa en la etiqueta.
+  function esModoMlUnico() {
+    return !chk('incluirSecciones') && S.modo === 'ml' && productoActual() && productoActual().ancho > 0;
+  }
+  function actualizarLabelMaterialManual() {
+    const lbl = $('precioMaterialManualLabel');
+    if (!lbl) return;
+    lbl.textContent = chk('incluirSecciones') ? 'Material (US$/m², aplica a todas las secciones)' : esModoMlUnico() ? 'Material (US$/ml)' : 'Material (US$/m²)';
+  }
   function precargarManuales() {
     const p = productoActual();
-    $('precioMaterialManual').value = CotizadorEngine.precioM2Lista(p, S.pago).toFixed(2);
+    actualizarLabelMaterialManual();
+    $('precioMaterialManual').value = (esModoMlUnico() ? Number(p[S.pago]) : CotizadorEngine.precioM2Lista(p, S.pago)).toFixed(2);
     $('precioTornilloManual').value = Number(params['tornillo_' + S.pago]).toFixed(2);
     $('precioRemateManual').value = Number(params['remate_' + S.pago]).toFixed(2);
   }
@@ -747,7 +823,7 @@ const Cotizador = (() => {
     const rematesDetalle = (S.remateModo === 'detallado')
       ? S.flashingsItems.map((it) => {
           const f = cat.flashings[it.idx];
-          return { codigo: f ? f.codigo : '', piezas: it.piezas, precioUnit: f ? f[S.pago] : 0 };
+          return { codigo: f ? f.codigo : '', piezas: it.piezas, precioUnit: precioFlashingEfectivo(it, f) };
         })
       : null;
     const entradas = {
@@ -758,13 +834,20 @@ const Cotizador = (() => {
       secciones: seccionesEntrada,
       rematesDetalle,
       ivaPct: val('iva'), tasaBcv: val('tasabcv'),
-      preciosManuales: modPrecios ? { material: val('precioMaterialManual'), tornillo: val('precioTornilloManual'), remate: val('precioRemateManual') } : null,
+      // El motor siempre espera el precio de material en US$/m² (precioM2) — si el campo se está
+      // mostrando/leyendo en US$/ml (esModoMlUnico()), hay que dividir entre el ancho útil antes
+      // de mandarlo, o se duplicaría la conversión al mostrarlo de vuelta en la oferta.
+      preciosManuales: modPrecios ? {
+        material: esModoMlUnico() ? val('precioMaterialManual') / (p.ancho || 1) : val('precioMaterialManual'),
+        tornillo: val('precioTornilloManual'), remate: val('precioRemateManual'),
+      } : null,
       montaje: {
         incluir: chk('incluirMontaje'), m2: val('precioMontajeM2'), ml: val('precioMontajeMl'),
+        areaManual: val('montajeAreaManual'),
         diasGrua: val('montajeDiasGrua'), precioGruaDia: val('montajePrecioGruaDia'),
         andamios: val('montajeAndamios'), supervisor: val('montajeSupervisor'),
       },
-      flete: { incluir: chk('incluirFlete'), monto: val('precioFlete') },
+      flete: { incluir: chk('incluirFlete'), fletes: S.fletes },
       margen: margen ? { costoMaterial: val('costoMaterial'), costoTornillo: val('costoTornillo'), costoRemate: val('costoRemate'), costoOtros: val('costoOtros') } : null,
       partidas: S.partidas,
     };
@@ -880,9 +963,16 @@ const Cotizador = (() => {
       }
     }
     if (r.incluirMontaje) {
-      filas.push(`<tr><td><strong>Montaje</strong>${sub('Instalación de techo/pantalla y remates — cuadrillas propias')}</td>
-        <td>${r.areaConDesp.toFixed(2)} m² + ${r.rematesMlFacturable.toLocaleString('es-VE')} ml<span class="badge-est">${montajeDef ? 'valor de lista' : 'ingresado manualmente'}</span></td>
-        <td class="r">—</td><td class="r">US$ ${fmt(r.precioMontajeM2)}/m² + US$ ${fmt(r.precioMontajeMl)}/ml</td><td class="r">US$ ${fmt(r.montajeImporte)}</td></tr>`);
+      // Montaje de techo y montaje de remates como 2 líneas separadas (feedback real: proveedores
+      // y precios distintos para cada uno, no deberían verse mezclados en un solo renglón).
+      filas.push(`<tr><td><strong>Montaje de techo</strong>${sub('Instalación de techo/pantalla — cuadrillas propias')}</td>
+        <td>${r.areaMontaje.toFixed(2)} m²${r.areaMontaje !== r.areaConDesp ? ' (manual)' : ''}<span class="badge-est">${r.areaMontaje !== r.areaConDesp ? 'ingresado manualmente' : montajeDef ? 'valor de lista' : 'ingresado manualmente'}</span></td>
+        <td class="r">—</td><td class="r">US$ ${fmt(r.precioMontajeM2)}/m²</td><td class="r">US$ ${fmt(r.montajeTechoImporte)}</td></tr>`);
+      if (r.rematesMlFacturable > 0 || r.montajeRematesImporte > 0) {
+        filas.push(`<tr><td><strong>Montaje de remates</strong>${sub('Instalación de flashings — cuadrillas propias')}</td>
+          <td>${r.rematesMlFacturable.toLocaleString('es-VE')} ml<span class="badge-est">${montajeDef ? 'valor de lista' : 'ingresado manualmente'}</span></td>
+          <td class="r">—</td><td class="r">US$ ${fmt(r.precioMontajeMl)}/ml</td><td class="r">US$ ${fmt(r.montajeRematesImporte)}</td></tr>`);
+      }
       if (r.gruaImporte > 0) {
         filas.push(`<tr><td><strong>Grúa de montaje</strong>${sub('Izaje — p. ej. standing seam')}</td>
           <td>${r.diasGrua} día(s)<span class="badge-est">ingresado manualmente</span></td>
@@ -898,8 +988,18 @@ const Cotizador = (() => {
       }
     }
     if (r.incluirFlete) {
-      filas.push(`<tr><td><strong>Flete</strong>${sub('Transporte estimado para este despacho')}</td>
-        <td>Estimado caso a caso<span class="badge-est">ingresado manualmente</span></td><td class="r">—</td><td class="r">—</td><td class="r">US$ ${fmt(r.fleteImporte)}</td></tr>`);
+      // Varias líneas de flete (p. ej. "Gandola 1", "Camión 750", cada una con su propio precio —
+      // feedback real, nov 2026) si se usó la lista; si no, el monto único de siempre.
+      if (r.fletes.length) {
+        r.fletes.forEach((f) => {
+          filas.push(`<tr><td><strong>Flete — ${esc(f.descripcion || 'sin descripción')}</strong>${sub('Transporte para este despacho')}</td>
+            <td>Ingresado manualmente<span class="badge-est">ingresado manualmente</span></td>
+            <td class="r">${f.cantidad.toLocaleString('es-VE')}</td><td class="r">US$ ${fmt(f.precioUnit)}</td><td class="r">US$ ${fmt(f.importe)}</td></tr>`);
+        });
+      } else {
+        filas.push(`<tr><td><strong>Flete</strong>${sub('Transporte estimado para este despacho')}</td>
+          <td>Estimado caso a caso<span class="badge-est">ingresado manualmente</span></td><td class="r">—</td><td class="r">—</td><td class="r">US$ ${fmt(r.fleteImporte)}</td></tr>`);
+      }
     }
     r.partidas.forEach((x) => {
       filas.push(`<tr><td><strong>${esc(x.descripcion || 'Partida adicional')}</strong>${sub('Partida adicional')}</td>
@@ -1065,9 +1165,15 @@ const Cotizador = (() => {
     }
     if (d.incluirMontaje) {
       rows.push(xRow([
-        xCell('Montaje'), xCell('Instalación de techo/pantalla y remates — cuadrillas propias'),
-        xCell(`${d.areaConDesp.toFixed(2)} m² + ${d.rematesMlFacturable} ml`), xCell(''), xCell(d.montajeImporte, 'sMoney', 'Number'),
+        xCell('Montaje de techo'), xCell('Instalación de techo/pantalla — cuadrillas propias'),
+        xCell(`${d.areaMontaje.toFixed(2)} m²`), xCell(d.precioMontajeM2, 'sMoney', 'Number'), xCell(d.montajeTechoImporte, 'sMoney', 'Number'),
       ]));
+      if (d.rematesMlFacturable > 0 || d.montajeRematesImporte > 0) {
+        rows.push(xRow([
+          xCell('Montaje de remates'), xCell('Instalación de flashings — cuadrillas propias'),
+          xCell(`${d.rematesMlFacturable} ml`), xCell(d.precioMontajeMl, 'sMoney', 'Number'), xCell(d.montajeRematesImporte, 'sMoney', 'Number'),
+        ]));
+      }
       if (d.gruaImporte > 0) {
         rows.push(xRow([
           xCell('Grúa de montaje'), xCell('Izaje — p. ej. standing seam'),
@@ -1082,10 +1188,19 @@ const Cotizador = (() => {
       }
     }
     if (d.incluirFlete) {
-      rows.push(xRow([
-        xCell('Flete'), xCell('Transporte estimado para este despacho'),
-        xCell('Estimado caso a caso'), xCell(''), xCell(d.fleteImporte, 'sMoney', 'Number'),
-      ]));
+      if (d.fletes.length) {
+        d.fletes.forEach((f) => {
+          rows.push(xRow([
+            xCell('Flete — ' + (f.descripcion || 'sin descripción')), xCell('Transporte para este despacho'),
+            xCell(f.cantidad), xCell(f.precioUnit, 'sMoney', 'Number'), xCell(f.importe, 'sMoney', 'Number'),
+          ]));
+        });
+      } else {
+        rows.push(xRow([
+          xCell('Flete'), xCell('Transporte estimado para este despacho'),
+          xCell('Estimado caso a caso'), xCell(''), xCell(d.fleteImporte, 'sMoney', 'Number'),
+        ]));
+      }
     }
     d.partidas.forEach((x) => {
       rows.push(xRow([
@@ -1269,7 +1384,7 @@ const Cotizador = (() => {
         id: S.ofertaId || undefined,
         numOferta: val('numOferta'), cliente: val('cliente') || '(sin nombre)', proyecto: val('proyecto') || '',
         campos: snapshot(), modo: S.modo, pago: S.pago, imagen: S.imagen, plano: S.plano, secciones: S.secciones,
-        remateModo: S.remateModo, flashingsItems: S.flashingsItems, partidas: S.partidas,
+        remateModo: S.remateModo, flashingsItems: S.flashingsItems, partidas: S.partidas, fletes: S.fletes,
       };
       const r = await ofertasGuardarImpl(record);
       S.ofertaId = r.id;
@@ -1288,6 +1403,10 @@ const Cotizador = (() => {
       S.remateModo = r.remateModo || 'estimado';
       S.flashingsItems = r.flashingsItems || [];
       S.partidas = r.partidas || [];
+      // Migración: ofertas guardadas antes de este cambio no tienen fletes[] sino un monto único
+      // en el campo precioFlete (ya eliminado del formulario) — se recupera como una sola línea.
+      const precioFleteLegado = r.campos && parseFloat(r.campos.precioFlete);
+      S.fletes = r.fletes || (precioFleteLegado > 0 ? [{ id: 'ft' + Math.random().toString(36).slice(2, 8), descripcion: '', cantidad: 1, precioUnit: precioFleteLegado }] : []);
       restaurar(r.campos || {});
       renderPartidas();
       S.imagen = r.imagen || null;

@@ -163,6 +163,12 @@
     const incluirFlete = !!(i.flete && i.flete.incluir);
     const precioMontajeM2 = n(i.montaje && i.montaje.m2);
     const precioMontajeMl = n(i.montaje && i.montaje.ml);
+    // Área de montaje: normalmente la misma que la de material, pero en obra a veces hay que
+    // cortar una lámina para que quede a ras de la estructura y el m² real de montaje termina
+    // siendo distinto del calculado por largo×ancho útil (feedback real, nov 2026). Si se informa,
+    // sustituye SOLO para este cálculo — el material se sigue cobrando por el área real.
+    const montajeAreaManual = i.montaje && i.montaje.areaManual;
+    const areaMontaje = montajeAreaManual != null && montajeAreaManual !== '' ? n(montajeAreaManual) : areaConDesp;
     // Partidas adicionales del montaje que no dependen del área: días de grúa (p. ej. izado en
     // standing seam), andamios especiales y supervisor fijo en obra — cada obra las tiene o no.
     const diasGrua = n(i.montaje && i.montaje.diasGrua);
@@ -170,11 +176,26 @@
     const gruaImporte = diasGrua * precioGruaDia;
     const andamios = n(i.montaje && i.montaje.andamios);
     const supervisor = n(i.montaje && i.montaje.supervisor);
-    const precioFlete = n(i.flete && i.flete.monto);
+    // Montaje de techo y montaje de remates por separado (feedback real: precios y proveedores
+    // distintos, se quieren ver como 2 líneas, no una sola mezclada).
+    const montajeTechoImporte = incluirMontaje ? areaMontaje * precioMontajeM2 : 0;
+    const montajeRematesImporte = incluirMontaje ? rematesMlFacturable * precioMontajeMl : 0;
     const montajeImporte = incluirMontaje
-      ? areaConDesp * precioMontajeM2 + rematesMlFacturable * precioMontajeMl + gruaImporte + andamios + supervisor
+      ? montajeTechoImporte + montajeRematesImporte + gruaImporte + andamios + supervisor
       : 0;
-    const fleteImporte = incluirFlete ? precioFlete : 0;
+    // Flete: lista de líneas (p. ej. "Gandola 1", "Gandola 2", "Camión 750", cada una con su
+    // propia cantidad y precio — feedback real, nov 2026) en vez de un monto único. Si no se manda
+    // la lista (ofertas guardadas antes de este cambio), se usa el monto único de siempre.
+    const precioFlete = n(i.flete && i.flete.monto);
+    const fletes = (Array.isArray(i.flete && i.flete.fletes) ? i.flete.fletes : [])
+      .filter((f) => n(f.cantidad) > 0)
+      .map((f) => ({
+        descripcion: String(f.descripcion || '').trim(),
+        cantidad: n(f.cantidad),
+        precioUnit: n(f.precioUnit),
+        importe: n(f.cantidad) * n(f.precioUnit),
+      }));
+    const fleteImporte = incluirFlete ? (fletes.length ? fletes.reduce((a, f) => a + f.importe, 0) : precioFlete) : 0;
 
     // Partidas adicionales: líneas manuales (cantidad × precio) para lo que no encaja en m²/ml —
     // extractores eólicos, un tipo de tornillo distinto para una conexión puntual, un flashing que
@@ -204,9 +225,9 @@
       tornillosPorM2, tornillosCant, tornilloPrecio, tornillosImporte,
       rematesMl, piezasRemate, rematesMlFacturable, rematePrecio, rematesImporte, rematesDetalle,
       secciones,
-      incluirMontaje, precioMontajeM2, precioMontajeMl, montajeImporte,
+      incluirMontaje, precioMontajeM2, precioMontajeMl, areaMontaje, montajeTechoImporte, montajeRematesImporte, montajeImporte,
       diasGrua, precioGruaDia, gruaImporte, andamios, supervisor,
-      incluirFlete, precioFlete, fleteImporte,
+      incluirFlete, precioFlete, fletes, fleteImporte,
       partidas, partidasImporte,
       subtotal, ivaBase, ivaPct, iva, total, tasaBcv, totalBs,
       incluirMargen: !!i.margen,
