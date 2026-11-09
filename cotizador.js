@@ -44,6 +44,17 @@ const Cotizador = (() => {
     return texto;
   }
 
+  // Separa el párrafo de alcance ("A continuación...") de las notas numeradas (forma de pago,
+  // despacho, etc.) — pedido real, nov 2026: el alcance va arriba sin título "Comentarios/alcance",
+  // las notas numeradas se muestran al final junto con "Notas". Si el texto no trae el marcador
+  // "Notas:" (p. ej. el usuario lo borró al editar), todo se trata como alcance, como antes.
+  function splitComentario(texto) {
+    const marcador = '\nNotas:\n';
+    const idx = (texto || '').indexOf(marcador);
+    if (idx === -1) return { alcance: (texto || '').trim(), notas: '' };
+    return { alcance: texto.slice(0, idx).trim(), notas: texto.slice(idx + marcador.length).trim() };
+  }
+
   // ---------- Plantilla del formulario ----------
   function formHtml() {
     return `
@@ -74,6 +85,8 @@ const Cotizador = (() => {
       <div id="seccionUnicaBox">
         <label>Sistema</label><select id="categoria"></select>
         <label>Producto</label><select id="producto"></select>
+        <label>Nombre del producto en la oferta (opcional, vacío = usa el nombre del catálogo)</label>
+        <input type="text" id="nombreProductoManual" placeholder="auto">
         <label>Modo de medición</label>
         <div class="toggle" id="medidaToggle"><button data-v="m2" class="active">Área directa (m²)</button><button data-v="ml">Metros lineales</button></div>
         <div id="areaDirectaBox"><label>Área a cubrir (m²)</label><input type="number" id="area" value="0" min="0" step="1"></div>
@@ -141,6 +154,11 @@ const Cotizador = (() => {
         <label>m² de montaje — manual (opcional, vacío = usa el área calculada del material)</label>
         <input type="number" id="montajeAreaManual" step="1" min="0" placeholder="auto">
         <div class="hint">Úsalo cuando en obra hay que cortar una lámina para que quede a ras de la estructura — el m² real de montaje puede no coincidir con el calculado. No afecta el precio del material, solo el de montaje.</div>
+        <div class="row2">
+          <div><label>m² de pantalla (opcional)</label><input type="number" id="montajePantallaArea" step="1" min="0" value="0"></div>
+          <div><label>Montaje pantalla (US$/m²)</label><input type="number" id="montajePantallaPrecioM2" step="0.01" min="0" value="0"></div>
+        </div>
+        <div class="hint">Para obras con techo y pantalla cotizados juntos, cuando el montaje de la pantalla se factura aparte del techo. Solo aparece en la oferta si pones m² aquí.</div>
         <div class="row2">
           <div><label>Días de grúa</label><input type="number" id="montajeDiasGrua" step="1" min="0" value="0"></div>
           <div><label>Precio grúa (US$/día)</label><input type="number" id="montajePrecioGruaDia" step="1" min="0" value="0"></div>
@@ -225,15 +243,14 @@ const Cotizador = (() => {
       <div class="doc-head">
         <div class="doc-head-logo"><img src="${S.logoSrc}" alt="Centrolit">
           <div class="doc-head-info" id="empresaInfo"></div></div>
-        <div class="meta"><div class="numoferta" id="docNum"></div><div id="docFecha"></div><div>Validez: 7 días</div></div>
+        <div class="meta"><div class="numoferta" id="docNum"></div><div id="docFecha"></div></div>
       </div>
       <div class="doc-title">Propuesta Técnico-Comercial</div>
-      <div class="doc-sub">Suministro de sistema de cubierta</div>
       <div class="doc-info" id="docInfo"></div>
       <div class="doc-comentarios" id="comentariosBox" hidden></div>
       <div class="doc-image" id="imagenBox" hidden></div>
       <div class="screen-only-note">Nota interna (no se imprime): las etiquetas "calculado", "estimado", "valor de lista", etc. solo se ven en pantalla; en el PDF de la Vista Cliente no aparecen.</div>
-      <table class="items"><thead><tr><th>Concepto</th><th>Detalle</th><th class="r">Cantidad</th><th class="r">Precio unit.</th><th class="r">Importe (US$)</th></tr></thead><tbody id="itemsBody"></tbody></table>
+      <table class="items"><thead><tr><th>Descripción</th><th class="r">Cantidad</th><th class="r">Precio unit.</th><th class="r">Importe (US$)</th></tr></thead><tbody id="itemsBody"></tbody></table>
       <div class="totals" id="totalsBox"></div>
       <div id="internaSection" hidden>
         <div class="interna-flag">VISTA INTERNA — SOLO DIRECCIÓN, NO ENTREGAR AL CLIENTE</div>
@@ -338,7 +355,7 @@ const Cotizador = (() => {
 
   function nuevaSeccion() {
     const pv = productosPlanos()[0]?.value || '';
-    return { id: 's' + Math.random().toString(36).slice(2, 8), nombre: '', pv, modo: modoDeProducto(productoPorValor(pv)), area: 0, mlLargo: 0, mlAncho: 0, rematesMl: 0, tornillosCantManual: '' };
+    return { id: 's' + Math.random().toString(36).slice(2, 8), nombre: '', nombreManual: '', pv, modo: modoDeProducto(productoPorValor(pv)), area: 0, mlLargo: 0, mlAncho: 0, rematesMl: 0, tornillosCantManual: '' };
   }
 
   function renderSecciones() {
@@ -351,6 +368,9 @@ const Cotizador = (() => {
         <div class="row2">
           <div><label>Nombre</label><input type="text" class="sec-nombre" data-idx="${idx}" value="${esc(s.nombre)}" placeholder="Agua 1, Pantalla norte…"></div>
           <div><label>Sistema / producto</label><select class="sec-producto" data-idx="${idx}">${planos.map((pp) => `<option value="${esc(pp.value)}" ${pp.value === s.pv ? 'selected' : ''} ${pp.sinPrecio ? 'disabled' : ''}>${esc(pp.label)}</option>`).join('')}</select></div>
+        </div>
+        <div class="row2">
+          <div><label>Nombre del producto en la oferta (opcional, vacío = usa el nombre del catálogo)</label><input type="text" class="sec-nombre-producto" data-idx="${idx}" value="${esc(s.nombreManual || '')}" placeholder="auto"></div>
         </div>
         <div class="toggle sec-modo" data-idx="${idx}">
           <button type="button" data-v="m2" class="${s.modo !== 'ml' ? 'active' : ''}">m²</button>
@@ -528,9 +548,13 @@ const Cotizador = (() => {
           else if (t.classList.contains('ft-cant')) x.cantidad = t.value;
           else if (t.classList.contains('ft-precio')) x.precioUnit = t.value;
         }
-      } else if (idx !== undefined && S.secciones[idx]) {
+      } else if (idx !== undefined && S.secciones[idx] && (t.classList.contains('sec-nombre') || t.classList.contains('sec-nombre-producto') || t.classList.contains('sec-area') || t.classList.contains('sec-largo') || t.classList.contains('sec-ancho') || t.classList.contains('sec-remates') || t.classList.contains('sec-tornillos-manual'))) {
+        // Gated por clase sec-*, no solo por índice: una Sección y una Partida pueden compartir el
+        // mismo idx (arrays independientes), y antes esto "robaba" el evento de pa-precio sin hacer
+        // nada, dejando el precio manual de Partidas sin aplicarse nunca (bug real reportado).
         const s = S.secciones[idx];
         if (t.classList.contains('sec-nombre')) s.nombre = t.value;
+        else if (t.classList.contains('sec-nombre-producto')) s.nombreManual = t.value;
         else if (t.classList.contains('sec-area')) s.area = t.value;
         else if (t.classList.contains('sec-largo')) s.mlLargo = t.value;
         else if (t.classList.contains('sec-ancho')) s.mlAncho = t.value;
@@ -844,6 +868,7 @@ const Cotizador = (() => {
       montaje: {
         incluir: chk('incluirMontaje'), m2: val('precioMontajeM2'), ml: val('precioMontajeMl'),
         areaManual: val('montajeAreaManual'),
+        pantallaArea: val('montajePantallaArea'), pantallaPrecioM2: val('montajePantallaPrecioM2'),
         diasGrua: val('montajeDiasGrua'), precioGruaDia: val('montajePrecioGruaDia'),
         andamios: val('montajeAndamios'), supervisor: val('montajeSupervisor'),
       },
@@ -864,8 +889,13 @@ const Cotizador = (() => {
       r.secciones.forEach((s, idx) => {
         const sIn = S.secciones[idx];
         s.modo = sIn ? sIn.modo : 'm2';
-        s.anchoUtil = (productoPorValor(sIn && sIn.pv) || {}).ancho || 0;
+        const prodSec = productoPorValor(sIn && sIn.pv);
+        s.anchoUtil = (prodSec || {}).ancho || 0;
         s.tornillosManual = !!(sIn && sIn.tornillosCantManual != null && sIn.tornillosCantManual !== '');
+        // Nombre del producto a mostrar en la "fila" de Material de esta sección — antes decía
+        // literalmente "Material" sin indicar cuál sistema (punto de feedback real, nov 2026: "en
+        // material que pueda decir el producto que estamos ofertando"). Admite override manual.
+        s.nombreProducto = (sIn && sIn.nombreManual && sIn.nombreManual.trim()) || (prodSec ? prodSec.n : 'Material');
       });
     }
     const pagoTxt = S.pago === 'efectivo' ? 'Contado, efectivo USD' : 'Bolívares a tasa BCV';
@@ -882,109 +912,108 @@ const Cotizador = (() => {
       clienteRif: val('clienteRif') || '', direccionFiscal: val('direccionFiscal') || '', direccionEntrega: val('direccionEntrega') || '',
       contactoNombre: val('contactoNombre') || '', contactoTelefono: val('contactoTelefono') || '', contactoCorreo: val('contactoCorreo') || '', contacto,
       pago: pagoTxt, tipoObra: val('tipoObra') || '—', comentarios: val('comentarios').trim(),
-      productoNombre: multi ? `Varias secciones (${r.secciones.length})` : p.n,
+      productoNombre: multi ? `Varias secciones (${r.secciones.length})` : (val('nombreProductoManual').trim() || p.n),
       catLabel: multi ? 'Secciones' : categoria, ancho: multi ? null : p.ancho,
       modo: multi ? null : S.modo, anchoUtil: multi ? null : (p.ancho || 0),
     };
 
     const emp = S.empresa;
-    $('empresaInfo').innerHTML = `RIF: ${esc(emp.rif)}<br>${esc(emp.direccion)}`;
+    // Sin logo de Centrolam como imagen disponible todavía (pedido real: "pueden colocar el logo
+    // de Centrolam como marca registrada") — mientras no haya un archivo, se refuerza con texto que
+    // Centrolam es una marca de Grupo Centrolit y viceversa, sin inventar un logo.
+    $('empresaInfo').innerHTML = `RIF: ${esc(emp.rif)}<br>${esc(emp.direccion)}<br><span class="marca-centrolam">CENTROLAM® — una marca de Grupo Centrolit</span>`;
     $('docFoot').innerHTML = `<span>${esc(emp.nombre)} · Centrolit / Centrolam / Plasticorp / Paneles Aislados</span><span>${esc(emp.web)}</span>`;
     $('docNum').textContent = ultima.docNum;
     $('docFecha').textContent = 'Fecha: ' + hoy;
+    // Forma de pago y Tipo de obra se siguen pidiendo en el formulario (alimentan el cálculo y el
+    // texto de comentario automático) pero ya no se imprimen en la oferta — pedido real, nov 2026:
+    // redundante/no aporta al cliente en el documento final.
     $('docInfo').innerHTML = [
       ['Cliente', ultima.cliente], ['RIF', ultima.clienteRif || '—'], ['Ubicación', ultima.ubicacion], ['Proyecto', ultima.proyecto],
       ['Dirección fiscal', ultima.direccionFiscal || '—'], ['Dirección de entrega', ultima.direccionEntrega || '—'],
-      ['Forma de pago', pagoTxt], ['Tipo de obra', ultima.tipoObra], ['Contacto', ultima.contacto || '—'],
+      ['Contacto', ultima.contacto || '—'],
     ].map(([l, v]) => `<div><span class="l">${l}:</span>${esc(v)}</div>`).join('');
 
-    const sub = (t) => `<div class="sub-line">${esc(t)}</div>`;
+    // sub(): sub-línea gris bajo la Descripción — reemplaza a la antigua columna "Detalle"
+    // (eliminada, punto de feedback real nov 2026: "eliminar detalle"). badge, si se da, es la
+    // misma etiqueta ámbar que antes vivía en esa columna (solo pantalla; se oculta al imprimir
+    // la Vista Cliente, ver styles.css).
+    const sub = (t, badge) => `<div class="sub-line">${esc(t)}${badge ? ` <span class="badge-est">${esc(badge)}</span>` : ''}</div>`;
     const filas = [];
     if (r.precioFaltante) {
-      filas.push('<tr class="seccion-head-row" style="background:var(--red) !important"><td colspan="5"><strong>⚠ Un producto no tiene precio de lista confirmado — no se puede exportar ni entregar esta oferta hasta corregirlo.</strong></td></tr>');
+      filas.push('<tr class="seccion-head-row" style="background:var(--red) !important"><td colspan="4"><strong>⚠ Un producto no tiene precio de lista confirmado — no se puede exportar ni entregar esta oferta hasta corregirlo.</strong></td></tr>');
     }
     if (multi) {
-      // Si hay flashings "Detallado" (globales, ver motor), reemplazan el estimado por sección —
-      // la fila de Remates de cada sección se muestra en 0 (coincide con lo que de verdad se cobra;
-      // el importe real aparece una sola vez, en el bloque global de abajo).
+      // Si hay flashings "Detallado" (globales, ver motor), reemplazan el estimado por sección — ya
+      // no se muestra ninguna fila de Remates por sección (antes había una fila en US$0, redundante
+      // con el bloque global de abajo — punto de feedback real: "si tenemos un apartado para
+      // flashings no vale la pena repetirlo").
       const flashingsGlobales = Array.isArray(r.rematesDetalle) && r.rematesDetalle.length > 0;
       r.secciones.forEach((s) => {
         const rematesImporteSeccion = flashingsGlobales ? 0 : s.rematesImporte;
         const subtotalSeccion = s.materialImporte + s.tornillosImporte + rematesImporteSeccion;
         const um = unidadMaterial(s.modo, s.anchoUtil, s.areaConDesp, s.precioM2);
-        filas.push(`<tr class="seccion-head-row"><td colspan="5"><strong>— ${esc(s.nombre)} —</strong></td></tr>`);
-        filas.push(`<tr><td>Material${sub('')}</td>
-          <td>${cantidadComoModo(s.modo, s.anchoUtil, s.area)} + ${s.desperdicioPct}% desperdicio<span class="badge-est">calculado</span></td>
+        filas.push(`<tr class="seccion-head-row"><td colspan="4"><strong>— ${esc(s.nombre)} —</strong></td></tr>`);
+        filas.push(`<tr><td><strong>${esc(s.nombreProducto)}</strong>${sub(`${cantidadComoModo(s.modo, s.anchoUtil, s.area)} + ${s.desperdicioPct}% desperdicio`, 'calculado')}</td>
           <td class="r">${um.cantidadTxt}</td><td class="r">US$ ${fmt(um.precioValor)}${um.precioSufijo}</td><td class="r">US$ ${fmt(s.materialImporte)}</td></tr>`);
-        filas.push(`<tr><td>Fijaciones${sub(nombreTornillo)}</td>
-          <td>${s.tornillosManual ? '' : s.tornillosPorM2 + ' unid./m²'}<span class="badge-est">${s.tornillosManual ? 'cantidad manual (de la Calculadora)' : 'estimado'}</span></td>
+        filas.push(`<tr><td><strong>Fijaciones</strong>${sub(nombreTornillo, s.tornillosManual ? 'cantidad manual (de la Calculadora)' : 'estimado')}</td>
           <td class="r">${s.tornillosCant.toLocaleString('es-VE')} unid.</td><td class="r">US$ ${fmt(s.tornilloPrecio)}</td><td class="r">US$ ${fmt(s.tornillosImporte)}</td></tr>`);
-        if (flashingsGlobales) {
-          filas.push(`<tr><td>Remates / Flashings${sub('ver bloque "Flashings (catálogo real)" al final — es global, no por sección')}</td>
-            <td>—<span class="badge-est">incluido abajo</span></td>
-            <td class="r">—</td><td class="r">—</td><td class="r">US$ 0,00</td></tr>`);
-        } else {
-          filas.push(`<tr><td>Remates / Flashings${sub(nombreRemate)}</td>
-            <td>${s.rematesMl.toLocaleString('es-VE')} ml → ${s.piezasRemate} pieza(s)<span class="badge-est">estimado</span></td>
+        if (!flashingsGlobales) {
+          filas.push(`<tr><td><strong>Remates / Flashings</strong>${sub(`${nombreRemate} — ${s.rematesMl.toLocaleString('es-VE')} ml → ${s.piezasRemate} pieza(s)`, 'estimado')}</td>
             <td class="r">${s.rematesMlFacturable.toLocaleString('es-VE')} ml</td><td class="r">US$ ${fmt(s.rematePrecio)}</td><td class="r">US$ ${fmt(s.rematesImporte)}</td></tr>`);
         }
-        filas.push(`<tr class="seccion-subtotal-row"><td colspan="4">Subtotal de esta sección (sin montaje ni flete, prorrateables)</td><td class="r">US$ ${fmt(subtotalSeccion)}</td></tr>`);
+        filas.push(`<tr class="seccion-subtotal-row"><td colspan="3">Subtotal de esta sección (sin montaje ni flete, prorrateables)</td><td class="r">US$ ${fmt(subtotalSeccion)}</td></tr>`);
       });
       if (flashingsGlobales) {
-        filas.push('<tr class="seccion-head-row"><td colspan="5"><strong>— Flashings (catálogo real) — aplica a toda la oferta —</strong></td></tr>');
+        filas.push('<tr class="seccion-head-row"><td colspan="4"><strong>— Flashings — aplica a toda la oferta —</strong></td></tr>');
         r.rematesDetalle.forEach((d) => {
           const f = cat.flashings.find((x) => x.codigo === d.codigo);
-          filas.push(`<tr><td>Flashing ${esc(d.codigo)}${sub(f ? f.descripcion : '')}</td><td>Catálogo real<span class="badge-est">valor de lista</span></td>
+          filas.push(`<tr><td><strong>Flashing ${esc(d.codigo)}</strong>${sub(f ? f.descripcion : '', 'valor de lista')}</td>
             <td class="r">${d.piezas} pieza(s)</td><td class="r">US$ ${fmt(d.precioUnit)}</td><td class="r">US$ ${fmt(d.piezas * d.precioUnit)}</td></tr>`);
         });
-        filas.push(`<tr class="seccion-subtotal-row"><td colspan="4">Subtotal de flashings (global)</td><td class="r">US$ ${fmt(r.rematesImporte)}</td></tr>`);
+        filas.push(`<tr class="seccion-subtotal-row"><td colspan="3">Subtotal de flashings (global)</td><td class="r">US$ ${fmt(r.rematesImporte)}</td></tr>`);
       }
     } else {
       const um = unidadMaterial(S.modo, p.ancho || 0, r.areaConDesp, r.precioM2);
       filas.push(
-        `<tr><td><strong>${esc(p.n)}</strong>${sub(categoria + (p.ancho ? ' · ancho útil ' + p.ancho + ' m' : ''))}</td>
-          <td>${cantidadComoModo(S.modo, p.ancho || 0, r.area)} + ${r.desperdicioPct}% desperdicio<span class="badge-est">${modPrecios ? 'precio modificado' : 'calculado'}</span></td>
+        `<tr><td><strong>${esc(ultima.productoNombre)}</strong>${sub(`${categoria}${p.ancho ? ' · ancho útil ' + p.ancho + ' m' : ''} · ${cantidadComoModo(S.modo, p.ancho || 0, r.area)} + ${r.desperdicioPct}% desperdicio`, modPrecios ? 'precio modificado' : 'calculado')}</td>
           <td class="r">${um.cantidadTxt}</td><td class="r">US$ ${fmt(um.precioValor)}${um.precioSufijo}</td><td class="r">US$ ${fmt(r.materialImporte)}</td></tr>`,
-        `<tr><td><strong>Fijaciones</strong>${sub(nombreTornillo)}</td>
-          <td>${r.tornillosPorM2} unid./m²<span class="badge-est">estimado</span></td>
+        `<tr><td><strong>Fijaciones</strong>${sub(`${nombreTornillo} — ${r.tornillosPorM2} unid./m²`, 'estimado')}</td>
           <td class="r">${r.tornillosCant.toLocaleString('es-VE')} unid.</td><td class="r">US$ ${fmt(r.tornilloPrecio)}</td><td class="r">US$ ${fmt(r.tornillosImporte)}</td></tr>`
       );
       if (r.rematesDetalle) {
         r.rematesDetalle.forEach((d) => {
           const f = cat.flashings.find((x) => x.codigo === d.codigo);
-          filas.push(`<tr><td><strong>Flashing ${esc(d.codigo)}</strong>${sub(f ? f.descripcion + ' — desarrollo ' + f.desarrollo + ' cm' : '')}</td>
-            <td>Catálogo real<span class="badge-est">pieza exacta</span></td>
+          filas.push(`<tr><td><strong>Flashing ${esc(d.codigo)}</strong>${sub(f ? f.descripcion + ' — desarrollo ' + f.desarrollo + ' cm' : '', 'pieza exacta')}</td>
             <td class="r">${d.piezas}</td><td class="r">US$ ${fmt(d.precioUnit)}</td><td class="r">US$ ${fmt(d.piezas * d.precioUnit)}</td></tr>`);
         });
       } else {
-        filas.push(`<tr><td><strong>Remates / Flashings</strong>${sub(nombreRemate + ' — se vende por pieza de 2,40 m')}</td>
-          <td>Perímetro estimado: ${r.rematesMl.toLocaleString('es-VE')} ml → ${r.piezasRemate} pieza(s) de 2,40 m<span class="badge-est">estimado</span></td>
+        filas.push(`<tr><td><strong>Remates / Flashings</strong>${sub(`${nombreRemate} — se vende por pieza de 2,40 m · perímetro estimado: ${r.rematesMl.toLocaleString('es-VE')} ml → ${r.piezasRemate} pieza(s)`, 'estimado')}</td>
           <td class="r">${r.rematesMlFacturable.toLocaleString('es-VE')} ml</td><td class="r">US$ ${fmt(r.rematePrecio)}</td><td class="r">US$ ${fmt(r.rematesImporte)}</td></tr>`);
       }
     }
     if (r.incluirMontaje) {
-      // Montaje de techo y montaje de remates como 2 líneas separadas (feedback real: proveedores
-      // y precios distintos para cada uno, no deberían verse mezclados en un solo renglón).
-      filas.push(`<tr><td><strong>Montaje de techo</strong>${sub('Instalación de techo/pantalla — cuadrillas propias')}</td>
-        <td>${r.areaMontaje.toFixed(2)} m²${r.areaMontaje !== r.areaConDesp ? ' (manual)' : ''}<span class="badge-est">${r.areaMontaje !== r.areaConDesp ? 'ingresado manualmente' : montajeDef ? 'valor de lista' : 'ingresado manualmente'}</span></td>
+      // Montaje de techo, de remates y de pantalla como líneas separadas (feedback real: precios y
+      // proveedores distintos, no deberían verse mezclados en un solo renglón).
+      filas.push(`<tr><td><strong>Montaje de techo</strong>${sub(`Instalación de techo — cuadrillas propias · ${r.areaMontaje.toFixed(2)} m²${r.areaMontaje !== r.areaConDesp ? ' (manual)' : ''}`, r.areaMontaje !== r.areaConDesp ? 'ingresado manualmente' : montajeDef ? 'valor de lista' : 'ingresado manualmente')}</td>
         <td class="r">—</td><td class="r">US$ ${fmt(r.precioMontajeM2)}/m²</td><td class="r">US$ ${fmt(r.montajeTechoImporte)}</td></tr>`);
       if (r.rematesMlFacturable > 0 || r.montajeRematesImporte > 0) {
-        filas.push(`<tr><td><strong>Montaje de remates</strong>${sub('Instalación de flashings — cuadrillas propias')}</td>
-          <td>${r.rematesMlFacturable.toLocaleString('es-VE')} ml<span class="badge-est">${montajeDef ? 'valor de lista' : 'ingresado manualmente'}</span></td>
+        filas.push(`<tr><td><strong>Montaje de remates</strong>${sub(`Instalación de flashings — cuadrillas propias · ${r.rematesMlFacturable.toLocaleString('es-VE')} ml`, montajeDef ? 'valor de lista' : 'ingresado manualmente')}</td>
           <td class="r">—</td><td class="r">US$ ${fmt(r.precioMontajeMl)}/ml</td><td class="r">US$ ${fmt(r.montajeRematesImporte)}</td></tr>`);
       }
+      if (r.montajePantallaImporte > 0) {
+        filas.push(`<tr><td><strong>Montaje de pantalla</strong>${sub(`Instalación de pantalla — cuadrillas propias · ${r.pantallaArea.toFixed(2)} m²`, 'ingresado manualmente')}</td>
+          <td class="r">—</td><td class="r">US$ ${fmt(r.pantallaPrecioM2)}/m²</td><td class="r">US$ ${fmt(r.montajePantallaImporte)}</td></tr>`);
+      }
       if (r.gruaImporte > 0) {
-        filas.push(`<tr><td><strong>Grúa de montaje</strong>${sub('Izaje — p. ej. standing seam')}</td>
-          <td>${r.diasGrua} día(s)<span class="badge-est">ingresado manualmente</span></td>
+        filas.push(`<tr><td><strong>Grúa de montaje</strong>${sub(`Izaje — p. ej. standing seam · ${r.diasGrua} día(s)`, 'ingresado manualmente')}</td>
           <td class="r">${r.diasGrua}</td><td class="r">US$ ${fmt(r.precioGruaDia)}/día</td><td class="r">US$ ${fmt(r.gruaImporte)}</td></tr>`);
       }
       if (r.andamios > 0) {
-        filas.push(`<tr><td><strong>Andamios especiales</strong>${sub('Montaje de esta obra')}</td>
-          <td>Estimado caso a caso<span class="badge-est">ingresado manualmente</span></td><td class="r">—</td><td class="r">—</td><td class="r">US$ ${fmt(r.andamios)}</td></tr>`);
+        filas.push(`<tr><td><strong>Andamios especiales</strong>${sub('Montaje de esta obra', 'ingresado manualmente')}</td><td class="r">Estimado caso a caso</td><td class="r">—</td><td class="r">US$ ${fmt(r.andamios)}</td></tr>`);
       }
       if (r.supervisor > 0) {
-        filas.push(`<tr><td><strong>Supervisor fijo en obra</strong>${sub('Montaje de esta obra')}</td>
-          <td>Estimado caso a caso<span class="badge-est">ingresado manualmente</span></td><td class="r">—</td><td class="r">—</td><td class="r">US$ ${fmt(r.supervisor)}</td></tr>`);
+        filas.push(`<tr><td><strong>Supervisor fijo en obra</strong>${sub('Montaje de esta obra', 'ingresado manualmente')}</td><td class="r">Estimado caso a caso</td><td class="r">—</td><td class="r">US$ ${fmt(r.supervisor)}</td></tr>`);
       }
     }
     if (r.incluirFlete) {
@@ -992,18 +1021,15 @@ const Cotizador = (() => {
       // feedback real, nov 2026) si se usó la lista; si no, el monto único de siempre.
       if (r.fletes.length) {
         r.fletes.forEach((f) => {
-          filas.push(`<tr><td><strong>Flete — ${esc(f.descripcion || 'sin descripción')}</strong>${sub('Transporte para este despacho')}</td>
-            <td>Ingresado manualmente<span class="badge-est">ingresado manualmente</span></td>
+          filas.push(`<tr><td><strong>Flete — ${esc(f.descripcion || 'sin descripción')}</strong>${sub('Transporte para este despacho', 'ingresado manualmente')}</td>
             <td class="r">${f.cantidad.toLocaleString('es-VE')}</td><td class="r">US$ ${fmt(f.precioUnit)}</td><td class="r">US$ ${fmt(f.importe)}</td></tr>`);
         });
       } else {
-        filas.push(`<tr><td><strong>Flete</strong>${sub('Transporte estimado para este despacho')}</td>
-          <td>Estimado caso a caso<span class="badge-est">ingresado manualmente</span></td><td class="r">—</td><td class="r">—</td><td class="r">US$ ${fmt(r.fleteImporte)}</td></tr>`);
+        filas.push(`<tr><td><strong>Flete</strong>${sub('Transporte estimado para este despacho', 'ingresado manualmente')}</td><td class="r">Estimado caso a caso</td><td class="r">—</td><td class="r">US$ ${fmt(r.fleteImporte)}</td></tr>`);
       }
     }
     r.partidas.forEach((x) => {
-      filas.push(`<tr><td><strong>${esc(x.descripcion || 'Partida adicional')}</strong>${sub('Partida adicional')}</td>
-        <td>Ingresado manualmente<span class="badge-est">ingresado manualmente</span></td>
+      filas.push(`<tr><td><strong>${esc(x.descripcion || 'Partida adicional')}</strong>${sub('Partida adicional', 'ingresado manualmente')}</td>
         <td class="r">${x.cantidad.toLocaleString('es-VE')} ${esc(x.unidad)}</td><td class="r">US$ ${fmt(x.precioUnit)}</td><td class="r">US$ ${fmt(x.importe)}</td></tr>`);
     });
     $('itemsBody').innerHTML = filas.join('');
@@ -1018,11 +1044,20 @@ const Cotizador = (() => {
       : r.incluirMontaje ? 'Incluyen montaje; no incluyen flete — se cotiza por separado.'
       : r.incluirFlete ? 'Incluyen flete; no incluyen montaje — se cotiza por separado.'
       : 'No incluyen flete ni montaje — se cotizan por separado, caso a caso.';
-    $('notesBox').innerHTML = `<strong>Notas:</strong> Precios ${S.pago === 'efectivo' ? 'de contado en efectivo USD' : 'en bolívares a tasa oficial BCV del día'}, sujetos a variación sin previo aviso. ${incl} Izaje/grúa no está incluido en ningún caso. Las cantidades de fijaciones y remates son estimadas: confirmar con el despiece técnico final antes de la orden de compra. Esta oferta no es un contrato.`;
+    const boilerplate = `Precios ${S.pago === 'efectivo' ? 'de contado en efectivo USD' : 'en bolívares a tasa oficial BCV del día'}, sujetos a variación sin previo aviso. ${incl} Izaje/grúa no está incluido en ningún caso. Las cantidades de fijaciones y remates son estimadas: confirmar con el despiece técnico final antes de la orden de compra. Esta oferta no es un contrato.`;
+
+    // El párrafo de alcance ("A continuación...") va arriba sin título; las notas numeradas de la
+    // plantilla (forma de pago, despacho, etc.) se muestran aquí abajo, junto a "Notas" — pedido
+    // real, nov 2026: "las notas pasarlas para el final" / "al final donde dice Notas dejar
+    // espacio para colocar las notas usuales".
+    const { alcance, notas: notasProducto } = splitComentario(ultima.comentarios);
+    $('notesBox').innerHTML = `<strong>Notas:</strong>
+      ${notasProducto ? `<div class="notas-usuales">${esc(notasProducto).replace(/\n/g, '<br>')}</div>` : ''}
+      <div class="notas-boilerplate">${esc(boilerplate)}</div>`;
 
     const cb = $('comentariosBox');
-    cb.hidden = !ultima.comentarios;
-    cb.innerHTML = `<strong>Comentarios / alcance:</strong>\n${esc(ultima.comentarios)}`;
+    cb.hidden = !alcance;
+    cb.innerHTML = esc(alcance);
 
     const ib = $('imagenBox');
     const conImagen = chk('incluirImagen') && S.imagen;
@@ -1109,117 +1144,124 @@ const Cotizador = (() => {
     rows.push(xRow([xCell('Cliente:', 'sLabel'), xCell(d.cliente), xCell('RIF:', 'sLabel'), xCell(d.clienteRif)]));
     rows.push(xRow([xCell('Ubicación:', 'sLabel'), xCell(d.ubicacion), xCell('Proyecto:', 'sLabel'), xCell(d.proyecto)]));
     rows.push(xRow([xCell('Dirección fiscal:', 'sLabel'), xCell(d.direccionFiscal), xCell('Dirección de entrega:', 'sLabel'), xCell(d.direccionEntrega)]));
-    rows.push(xRow([xCell('Forma de pago:', 'sLabel'), xCell(d.pago), xCell('Tipo de obra:', 'sLabel'), xCell(d.tipoObra)]));
     rows.push(xRow([xCell('Contacto:', 'sLabel'), xCell(d.contacto), xCell('Fecha:', 'sLabel'), xCell(d.fecha)]));
     rows.push(xRow([]));
-    if (d.comentarios) {
-      rows.push(xRow([xCell('Comentarios / alcance:', 'sBold')]));
-      rows.push(xRow([xCell(d.comentarios, 'sWrap')]));
+    // El párrafo de alcance va sin título; las notas numeradas de la plantilla se juntan con las
+    // notas usuales al final, no aquí arriba (mismo criterio que el documento HTML/PDF).
+    const { alcance, notas: notasProducto } = splitComentario(d.comentarios);
+    if (alcance) {
+      rows.push(xRow([xCell(alcance, 'sWrap')]));
       rows.push(xRow([]));
     }
-    rows.push(xRow(['Concepto', 'Detalle', 'Cantidad', 'Precio unit. (US$)', 'Importe (US$)'].map((h) => xCell(h, 'sHeader'))));
+    rows.push(xRow(['Descripción', 'Cantidad', 'Precio unit. (US$)', 'Importe (US$)'].map((h) => xCell(h, 'sHeader'))));
     if (d.secciones) {
       const flashingsGlobales = Array.isArray(d.rematesDetalle) && d.rematesDetalle.length > 0;
       d.secciones.forEach((s) => {
         rows.push(xRow([xCell('— ' + s.nombre + ' —', 'sBold')]));
         const um = unidadMaterial(s.modo, s.anchoUtil, s.areaConDesp, s.precioM2);
         const rematesImporteSeccion = flashingsGlobales ? 0 : s.rematesImporte;
-        rows.push(xRow([xCell('Material'), xCell(''), xCell(um.cantidadTxt), xCell(um.precioValor, 'sMoney', 'Number'), xCell(s.materialImporte, 'sMoney', 'Number')]));
-        rows.push(xRow([xCell('Fijaciones'), xCell(s.tornillosManual ? 'cantidad manual' : 'estimado'), xCell(`${s.tornillosCant} unid.`), xCell(s.tornilloPrecio, 'sMoney', 'Number'), xCell(s.tornillosImporte, 'sMoney', 'Number')]));
-        if (flashingsGlobales) {
-          rows.push(xRow([xCell('Remates / Flashings'), xCell('ver bloque global al final'), xCell('—'), xCell(''), xCell(0, 'sMoney', 'Number')]));
-        } else {
-          rows.push(xRow([xCell('Remates / Flashings'), xCell(''), xCell(`${s.rematesMlFacturable} ml`), xCell(s.rematePrecio, 'sMoney', 'Number'), xCell(s.rematesImporte, 'sMoney', 'Number')]));
+        rows.push(xRow([xCell(`${s.nombreProducto}\n${cantidadComoModo(s.modo, s.anchoUtil, s.area)} + ${s.desperdicioPct}% desperdicio`, 'sWrap'), xCell(um.cantidadTxt), xCell(um.precioValor, 'sMoney', 'Number'), xCell(s.materialImporte, 'sMoney', 'Number')]));
+        rows.push(xRow([xCell(`Fijaciones\n${s.tornillosManual ? 'cantidad manual (de la Calculadora)' : 'estimado'}`, 'sWrap'), xCell(`${s.tornillosCant} unid.`), xCell(s.tornilloPrecio, 'sMoney', 'Number'), xCell(s.tornillosImporte, 'sMoney', 'Number')]));
+        if (!flashingsGlobales) {
+          rows.push(xRow([xCell('Remates / Flashings', 'sWrap'), xCell(`${s.rematesMlFacturable} ml`), xCell(s.rematePrecio, 'sMoney', 'Number'), xCell(s.rematesImporte, 'sMoney', 'Number')]));
         }
-        rows.push(xRow([xCell(''), xCell(''), xCell(''), xCell('Subtotal de esta sección', 'sLabel'), xCell(s.materialImporte + s.tornillosImporte + rematesImporteSeccion, 'sMoney', 'Number')]));
+        rows.push(xRow([xCell(''), xCell(''), xCell('Subtotal de esta sección', 'sLabel'), xCell(s.materialImporte + s.tornillosImporte + rematesImporteSeccion, 'sMoney', 'Number')]));
       });
       if (flashingsGlobales) {
-        rows.push(xRow([xCell('— Flashings (catálogo real) — aplica a toda la oferta —', 'sBold')]));
+        rows.push(xRow([xCell('— Flashings — aplica a toda la oferta —', 'sBold')]));
         d.rematesDetalle.forEach((df) => {
-          rows.push(xRow([xCell(`Flashing ${df.codigo}`), xCell('Catálogo real'), xCell(`${df.piezas} pieza(s)`), xCell(df.precioUnit, 'sMoney', 'Number'), xCell(df.piezas * df.precioUnit, 'sMoney', 'Number')]));
+          rows.push(xRow([xCell(`Flashing ${df.codigo}`, 'sWrap'), xCell(`${df.piezas} pieza(s)`), xCell(df.precioUnit, 'sMoney', 'Number'), xCell(df.piezas * df.precioUnit, 'sMoney', 'Number')]));
         });
-        rows.push(xRow([xCell(''), xCell(''), xCell(''), xCell('Subtotal de flashings (global)', 'sLabel'), xCell(d.rematesImporte, 'sMoney', 'Number')]));
+        rows.push(xRow([xCell(''), xCell(''), xCell('Subtotal de flashings (global)', 'sLabel'), xCell(d.rematesImporte, 'sMoney', 'Number')]));
       }
     } else {
       {
         const um = unidadMaterial(d.modo, d.anchoUtil, d.areaConDesp, d.precioM2);
         rows.push(xRow([
-          xCell(d.productoNombre), xCell(`${d.catLabel}${d.ancho ? ' · ancho útil ' + d.ancho + ' m' : ''}`),
+          xCell(`${d.productoNombre}\n${cantidadComoModo(d.modo, d.anchoUtil, d.area)} + ${d.desperdicioPct}% desperdicio`, 'sWrap'),
           xCell(um.cantidadTxt), xCell(um.precioValor, 'sMoney', 'Number'), xCell(d.materialImporte, 'sMoney', 'Number'),
         ]));
       }
       rows.push(xRow([
-        xCell('Fijaciones'), xCell('Tornillo autotaladrante — fijación estándar'),
+        xCell('Fijaciones\nTornillo autotaladrante — fijación estándar', 'sWrap'),
         xCell(`${d.tornillosCant} unid.`), xCell(d.tornilloPrecio, 'sMoney', 'Number'), xCell(d.tornillosImporte, 'sMoney', 'Number'),
       ]));
       if (d.rematesDetalle) {
         d.rematesDetalle.forEach((f) => {
-          rows.push(xRow([xCell('Flashing ' + f.codigo), xCell('Catálogo real'), xCell(f.piezas), xCell(f.precioUnit, 'sMoney', 'Number'), xCell(f.piezas * f.precioUnit, 'sMoney', 'Number')]));
+          rows.push(xRow([xCell('Flashing ' + f.codigo, 'sWrap'), xCell(f.piezas), xCell(f.precioUnit, 'sMoney', 'Number'), xCell(f.piezas * f.precioUnit, 'sMoney', 'Number')]));
         });
       } else {
         rows.push(xRow([
-          xCell('Remates / Flashings'), xCell(`${d.rematesMl} ml → ${d.piezasRemate} pieza(s) de 2,40 m`),
+          xCell(`Remates / Flashings\n${d.rematesMl} ml → ${d.piezasRemate} pieza(s) de 2,40 m`, 'sWrap'),
           xCell(`${d.rematesMlFacturable} ml`), xCell(d.rematePrecio, 'sMoney', 'Number'), xCell(d.rematesImporte, 'sMoney', 'Number'),
         ]));
       }
     }
     if (d.incluirMontaje) {
       rows.push(xRow([
-        xCell('Montaje de techo'), xCell('Instalación de techo/pantalla — cuadrillas propias'),
+        xCell('Montaje de techo\nInstalación de techo — cuadrillas propias', 'sWrap'),
         xCell(`${d.areaMontaje.toFixed(2)} m²`), xCell(d.precioMontajeM2, 'sMoney', 'Number'), xCell(d.montajeTechoImporte, 'sMoney', 'Number'),
       ]));
       if (d.rematesMlFacturable > 0 || d.montajeRematesImporte > 0) {
         rows.push(xRow([
-          xCell('Montaje de remates'), xCell('Instalación de flashings — cuadrillas propias'),
+          xCell('Montaje de remates\nInstalación de flashings — cuadrillas propias', 'sWrap'),
           xCell(`${d.rematesMlFacturable} ml`), xCell(d.precioMontajeMl, 'sMoney', 'Number'), xCell(d.montajeRematesImporte, 'sMoney', 'Number'),
+        ]));
+      }
+      if (d.montajePantallaImporte > 0) {
+        rows.push(xRow([
+          xCell('Montaje de pantalla\nInstalación de pantalla — cuadrillas propias', 'sWrap'),
+          xCell(`${d.pantallaArea.toFixed(2)} m²`), xCell(d.pantallaPrecioM2, 'sMoney', 'Number'), xCell(d.montajePantallaImporte, 'sMoney', 'Number'),
         ]));
       }
       if (d.gruaImporte > 0) {
         rows.push(xRow([
-          xCell('Grúa de montaje'), xCell('Izaje — p. ej. standing seam'),
+          xCell('Grúa de montaje\nIzaje — p. ej. standing seam', 'sWrap'),
           xCell(`${d.diasGrua} día(s)`), xCell(d.precioGruaDia, 'sMoney', 'Number'), xCell(d.gruaImporte, 'sMoney', 'Number'),
         ]));
       }
       if (d.andamios > 0) {
-        rows.push(xRow([xCell('Andamios especiales'), xCell('Montaje de esta obra'), xCell('Estimado caso a caso'), xCell(''), xCell(d.andamios, 'sMoney', 'Number')]));
+        rows.push(xRow([xCell('Andamios especiales\nMontaje de esta obra', 'sWrap'), xCell('Estimado caso a caso'), xCell(''), xCell(d.andamios, 'sMoney', 'Number')]));
       }
       if (d.supervisor > 0) {
-        rows.push(xRow([xCell('Supervisor fijo en obra'), xCell('Montaje de esta obra'), xCell('Estimado caso a caso'), xCell(''), xCell(d.supervisor, 'sMoney', 'Number')]));
+        rows.push(xRow([xCell('Supervisor fijo en obra\nMontaje de esta obra', 'sWrap'), xCell('Estimado caso a caso'), xCell(''), xCell(d.supervisor, 'sMoney', 'Number')]));
       }
     }
     if (d.incluirFlete) {
       if (d.fletes.length) {
         d.fletes.forEach((f) => {
           rows.push(xRow([
-            xCell('Flete — ' + (f.descripcion || 'sin descripción')), xCell('Transporte para este despacho'),
+            xCell('Flete — ' + (f.descripcion || 'sin descripción') + '\nTransporte para este despacho', 'sWrap'),
             xCell(f.cantidad), xCell(f.precioUnit, 'sMoney', 'Number'), xCell(f.importe, 'sMoney', 'Number'),
           ]));
         });
       } else {
         rows.push(xRow([
-          xCell('Flete'), xCell('Transporte estimado para este despacho'),
+          xCell('Flete\nTransporte estimado para este despacho', 'sWrap'),
           xCell('Estimado caso a caso'), xCell(''), xCell(d.fleteImporte, 'sMoney', 'Number'),
         ]));
       }
     }
     d.partidas.forEach((x) => {
       rows.push(xRow([
-        xCell(x.descripcion || 'Partida adicional'), xCell('Partida adicional'),
+        xCell((x.descripcion || 'Partida adicional') + '\nPartida adicional', 'sWrap'),
         xCell(`${x.cantidad} ${x.unidad}`), xCell(x.precioUnit, 'sMoney', 'Number'), xCell(x.importe, 'sMoney', 'Number'),
       ]));
     });
     rows.push(xRow([]));
-    rows.push(xRow([xCell(''), xCell(''), xCell(''), xCell('Subtotal', 'sLabel'), xCell(d.subtotal, 'sMoney', 'Number')]));
-    rows.push(xRow([xCell(''), xCell(''), xCell(''), xCell(`IVA (${d.ivaPct}%)`, 'sLabel'), xCell(d.iva, 'sMoney', 'Number')]));
-    rows.push(xRow([xCell(''), xCell(''), xCell(''), xCell('TOTAL', 'sBold'), xCell(d.total, 'sMoneyBold', 'Number')]));
+    rows.push(xRow([xCell(''), xCell(''), xCell('Subtotal', 'sLabel'), xCell(d.subtotal, 'sMoney', 'Number')]));
+    rows.push(xRow([xCell(''), xCell(''), xCell(`IVA (${d.ivaPct}%)`, 'sLabel'), xCell(d.iva, 'sMoney', 'Number')]));
+    rows.push(xRow([xCell(''), xCell(''), xCell('TOTAL', 'sBold'), xCell(d.total, 'sMoneyBold', 'Number')]));
     if (d.totalBs) {
-      rows.push(xRow([xCell(''), xCell(''), xCell(''), xCell(`Equivalente en Bs (tasa BCV ${d.tasaBcv})`, 'sLabel'), xCell(d.totalBs, 'sMoney', 'Number')]));
+      rows.push(xRow([xCell(''), xCell(''), xCell(`Equivalente en Bs (tasa BCV ${d.tasaBcv})`, 'sLabel'), xCell(d.totalBs, 'sMoney', 'Number')]));
     }
     rows.push(xRow([]));
+    rows.push(xRow([xCell('Notas:', 'sBold')]));
+    if (notasProducto) rows.push(xRow([xCell(notasProducto, 'sWrap')]));
     rows.push(xRow([xCell('Precios sujetos a variación sin previo aviso. Izaje/grúa nunca incluido. Cantidades de fijaciones y remates son estimadas — confirmar con el despiece técnico final antes de la orden de compra. Esta oferta no es un contrato.', 'sWrap')]));
 
     const sheetCliente = `<Worksheet ss:Name="Cliente"><Table ss:DefaultColumnWidth="130">
-      <Column ss:Width="180"/><Column ss:Width="260"/><Column ss:Width="110"/><Column ss:Width="110"/><Column ss:Width="110"/>
+      <Column ss:Width="340"/><Column ss:Width="110"/><Column ss:Width="110"/><Column ss:Width="110"/>
       ${rows.join('\n')}</Table></Worksheet>`;
 
     let sheetInterna = '';

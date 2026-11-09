@@ -180,8 +180,14 @@
     // distintos, se quieren ver como 2 líneas, no una sola mezclada).
     const montajeTechoImporte = incluirMontaje ? areaMontaje * precioMontajeM2 : 0;
     const montajeRematesImporte = incluirMontaje ? rematesMlFacturable * precioMontajeMl : 0;
+    // Montaje de pantalla: línea aparte, opcional — obras con techo + pantalla a veces facturan el
+    // montaje de la pantalla con su propio m² y precio, independiente del techo (feedback real,
+    // nov 2026). Solo aplica si se informa un área > 0.
+    const pantallaArea = n(i.montaje && i.montaje.pantallaArea);
+    const pantallaPrecioM2 = n(i.montaje && i.montaje.pantallaPrecioM2);
+    const montajePantallaImporte = incluirMontaje ? pantallaArea * pantallaPrecioM2 : 0;
     const montajeImporte = incluirMontaje
-      ? montajeTechoImporte + montajeRematesImporte + gruaImporte + andamios + supervisor
+      ? montajeTechoImporte + montajeRematesImporte + montajePantallaImporte + gruaImporte + andamios + supervisor
       : 0;
     // Flete: lista de líneas (p. ej. "Gandola 1", "Gandola 2", "Camión 750", cada una con su
     // propia cantidad y precio — feedback real, nov 2026) en vez de un monto único. Si no se manda
@@ -225,7 +231,8 @@
       tornillosPorM2, tornillosCant, tornilloPrecio, tornillosImporte,
       rematesMl, piezasRemate, rematesMlFacturable, rematePrecio, rematesImporte, rematesDetalle,
       secciones,
-      incluirMontaje, precioMontajeM2, precioMontajeMl, areaMontaje, montajeTechoImporte, montajeRematesImporte, montajeImporte,
+      incluirMontaje, precioMontajeM2, precioMontajeMl, areaMontaje, montajeTechoImporte, montajeRematesImporte,
+      pantallaArea, pantallaPrecioM2, montajePantallaImporte, montajeImporte,
       diasGrua, precioGruaDia, gruaImporte, andamios, supervisor,
       incluirFlete, precioFlete, fletes, fleteImporte,
       partidas, partidasImporte,
