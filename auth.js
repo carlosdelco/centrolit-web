@@ -28,10 +28,23 @@ const WebAuth = (() => {
     return tokenClient;
   }
 
+  // Google Identity Services devuelve códigos de error en texto plano (p. ej.
+  // "popup_failed_to_open" cuando el navegador bloquea la ventana emergente) — sin traducir, esto
+  // se mostraba tal cual al usuario (toast con el código en inglés, sin decirle qué hacer). Real,
+  // reportado por el equipo comercial ("ventana emergente bloqueada").
+  const MENSAJES_ERROR_LOGIN = {
+    popup_failed_to_open: 'Tu navegador bloqueó la ventana de inicio de sesión de Google. Permite ventanas emergentes para este sitio (icono en la barra de direcciones, junto a la URL) e inténtalo de nuevo.',
+    popup_closed: 'Cerraste la ventana de inicio de sesión de Google antes de terminar. Inténtalo de nuevo.',
+    access_denied: 'No se concedió el permiso solicitado en Google. Inténtalo de nuevo y acepta los permisos.',
+  };
+  function errorLoginAmigable(codigo) {
+    return MENSAJES_ERROR_LOGIN[codigo] || `No se pudo iniciar sesión con Google (${codigo}).`;
+  }
+
   function requestToken(opts) {
     return new Promise((resolve, reject) => {
       const client = ensureClient();
-      client.callback = (resp) => (resp.error ? reject(new Error(resp.error)) : resolve(resp.access_token));
+      client.callback = (resp) => (resp.error ? reject(new Error(errorLoginAmigable(resp.error))) : resolve(resp.access_token));
       client.requestAccessToken(opts);
     });
   }

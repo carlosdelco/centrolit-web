@@ -50,12 +50,22 @@ const pillEtapa = (etapa) => {
   return `<span class="pill ${e.c}">${esc(e.l)}</span>`;
 };
 
-// Mensaje estándar para errores de carga de datos.
+// Mensaje estándar para errores de carga de datos. "sin_acceso" antes mostraba un texto genérico
+// que nunca decía CUÁL fichero fallaba (Precios/KPIs/Personal/Pedidos) — con varias pestañas que
+// cargan ficheros distintos, eso hacía casi imposible saber a cuál darle acceso sin leer el código
+// (caso real, nov 2026). Ahora se usa el mensaje específico que ya arma cada caller (data-service.js
+// / web/data.js / pedidos-service.js), que sí nombra el fichero — con el genérico solo como respaldo
+// si por lo que sea no vino.
 function bloqueError(res, accionRefrescar) {
   const msgs = {
     sin_fichero: 'Falta indicar el fichero de Google Sheets. Ve a <strong>Ajustes</strong> y pega el enlace.',
     no_session: 'Necesitas iniciar sesión con tu cuenta de Google. Ve a <strong>Ajustes</strong>.',
-    sin_acceso: 'Tu cuenta de Google no tiene permiso para abrir este fichero. Pide acceso a quien lo administra.',
+    sin_acceso: `${esc(res.error || 'Tu cuenta de Google no tiene permiso para abrir este fichero.')} Pide acceso a quien lo administra.`,
+    // Distinto de "sin_acceso": aquí la cuenta SÍ tiene permiso sobre el fichero, pero la sesión
+    // guardada se autorizó con menos permisos de los que la app necesita hoy (p. ej. inició sesión
+    // antes de que se agregara el permiso de escritura) — el arreglo es volver a iniciar sesión,
+    // no pedir acceso a nadie.
+    permiso_insuficiente: `${esc(res.error || 'Tu sesión de Google no tiene los permisos necesarios para esta acción.')} Ve a <strong>Ajustes</strong>, cierra sesión y vuelve a iniciar sesión con Google.`,
   };
   const html = msgs[res.code] || esc(res.error || 'Error desconocido');
   return `<div class="empty-state"><h3>No se pudieron cargar los datos</h3><p>${html}</p>

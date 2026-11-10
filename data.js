@@ -8,6 +8,10 @@ const WebData = (() => {
   const HOJAS_KPIS = { areas: 'Areas', kpis: 'KPIs', historial: 'Historial' };
   const HOJAS_PRECIOS = { productos: 'Productos', parametros: 'Parametros', textos: 'Textos', tiposObra: 'TiposObra' };
   const HOJAS_PRECIOS_OPCIONAL = { flashings: 'Flashings', fijaciones: 'Fijaciones' };
+  // Nombre legible por tipo de fichero — el mensaje de "sin acceso" antes era genérico para los 3
+  // (Precios/KPIs/Personal) y no decía CUÁL fichero fallaba, lo que hacía casi imposible
+  // diagnosticar a distancia cuál cuenta le faltaba acceso a qué (caso real, nov 2026).
+  const NOMBRE_FICHERO = { precios: 'la Lista de precios', kpis: 'los KPIs', personal: 'Personal' };
 
   const cacheKey = (kind, email) => `centrolit.cache.${kind}.${email}`;
 
@@ -95,7 +99,7 @@ const WebData = (() => {
         // fetch sin red: usar caché con aviso
         return { ok: true, data: cached.data, fetchedAt: cached.fetchedAt, fromCache: true, stale: true, source: 'google' };
       }
-      if (e.status === 403 || e.status === 404) return { ok: false, code: 'sin_acceso', error: 'Tu cuenta de Google no tiene acceso a este fichero.' };
+      if (e.status === 403 || e.status === 404) return { ok: false, code: 'sin_acceso', error: `Tu cuenta de Google no tiene acceso al fichero de ${NOMBRE_FICHERO[kind] || kind}.` };
       return { ok: false, code: 'error', error: e.message };
     }
   }
