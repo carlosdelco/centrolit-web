@@ -581,6 +581,9 @@ const Cotizador = (() => {
           s.modo = modoDeProducto(productoPorValor(s.pv));
           renderSecciones();
         }
+        // Cambiar el producto de una sección puede volver (o dejar de ser) homogéneas las
+        // secciones en ml — refresca la etiqueta/precarga del precio manual de Material.
+        if (chk('modPrecios')) precargarManuales(); else actualizarLabelMaterialManual();
         calcular();
         return;
       }
@@ -665,12 +668,14 @@ const Cotizador = (() => {
       if (e.target.classList.contains('sec-eliminar')) {
         S.secciones.splice(+e.target.dataset.idx, 1);
         renderSecciones();
+        if (chk('modPrecios')) precargarManuales(); else actualizarLabelMaterialManual();
         calcular();
         return;
       }
       if (e.target.id === 'agregarSeccion') {
         S.secciones.push(nuevaSeccion());
         renderSecciones();
+        if (chk('modPrecios')) precargarManuales(); else actualizarLabelMaterialManual();
         calcular();
         return;
       }
@@ -760,20 +765,50 @@ const Cotizador = (() => {
   // m², así que quien escribía un precio pensando en US$/ml (p. ej. "Maxipanel a US$46/ml") veía un
   // número distinto en la oferta (US$46 × ancho_util = US$48,30) porque el motor lo tomaba tal
   // cual como US$/m² y la tabla lo multiplicaba de vuelta por ancho_util para mostrarlo en ml
-  // (bug real reportado, nov 2026). En modo secciones no hay un modo único (cada sección puede ser
-  // distinta), así que ahí se mantiene en US$/m² como siempre — se avisa en la etiqueta.
+  // (bug real reportado, nov 2026).
+  // En modo secciones, si TODAS las secciones usan el mismo producto/ancho útil en ml (caso real:
+  // "Techo 1"/"Techo 2" ambos Maxipanel), SÍ hay un único US$/ml al que convertir sin ambigüedad —
+  // mismo bug reportado otra vez, nov 2026, porque antes esto se dejaba siempre en US$/m² "porque
+  // cada sección puede ser distinta", sin comprobar si en este caso concreto no lo eran. Si las
+  // secciones mezclan productos distintos (o alguno es m², como Standing Seam), no hay un ancho
+  // único y se mantiene en US$/m² como antes — avisado en la etiqueta.
+  function anchoUtilSeccionesHomogeneo() {
+    if (!S.secciones.length) return 0;
+    let ancho = null;
+    for (const s of S.secciones) {
+      const p = productoPorValor(s.pv);
+      if (!p || modoDeProducto(p) !== 'ml' || !(p.ancho > 0)) return 0;
+      if (ancho == null) ancho = p.ancho;
+      else if (Math.abs(ancho - p.ancho) > 1e-9) return 0;
+    }
+    return ancho || 0;
+  }
+  function anchoUtilParaManual() {
+    if (chk('incluirSecciones')) return anchoUtilSeccionesHomogeneo();
+    const p = productoActual();
+    return S.modo === 'ml' && p && p.ancho > 0 ? p.ancho : 0;
+  }
+  function productoManualReferencia() {
+    if (chk('incluirSecciones')) return S.secciones[0] ? productoPorValor(S.secciones[0].pv) : null;
+    return productoActual();
+  }
   function esModoMlUnico() {
-    return !chk('incluirSecciones') && S.modo === 'ml' && productoActual() && productoActual().ancho > 0;
+    return anchoUtilParaManual() > 0;
   }
   function actualizarLabelMaterialManual() {
     const lbl = $('precioMaterialManualLabel');
     if (!lbl) return;
-    lbl.textContent = chk('incluirSecciones') ? 'Material (US$/m², aplica a todas las secciones)' : esModoMlUnico() ? 'Material (US$/ml)' : 'Material (US$/m²)';
+    const ml = esModoMlUnico();
+    lbl.textContent = chk('incluirSecciones')
+      ? (ml ? 'Material (US$/ml, aplica a todas las secciones — mismo producto)' : 'Material (US$/m², aplica a todas las secciones)')
+      : (ml ? 'Material (US$/ml)' : 'Material (US$/m²)');
   }
   function precargarManuales() {
-    const p = productoActual();
     actualizarLabelMaterialManual();
-    $('precioMaterialManual').value = (esModoMlUnico() ? Number(p[S.pago]) : CotizadorEngine.precioM2Lista(p, S.pago)).toFixed(2);
+    const pRef = productoManualReferencia();
+    if (pRef) {
+      $('precioMaterialManual').value = (esModoMlUnico() ? Number(pRef[S.pago]) : CotizadorEngine.precioM2Lista(pRef, S.pago)).toFixed(2);
+    }
     $('precioTornilloManual').value = Number(params['tornillo_' + S.pago]).toFixed(2);
     $('precioRemateManual').value = Number(params['remate_' + S.pago]).toFixed(2);
   }
@@ -860,9 +895,11 @@ const Cotizador = (() => {
       ivaPct: val('iva'), tasaBcv: val('tasabcv'),
       // El motor siempre espera el precio de material en US$/m² (precioM2) — si el campo se está
       // mostrando/leyendo en US$/ml (esModoMlUnico()), hay que dividir entre el ancho útil antes
-      // de mandarlo, o se duplicaría la conversión al mostrarlo de vuelta en la oferta.
+      // de mandarlo, o se duplicaría la conversión al mostrarlo de vuelta en la oferta. El ancho
+      // correcto es el de anchoUtilParaManual() (sección homogénea o producto único), NUNCA el del
+      // selector de producto oculto (`p`) cuando hay secciones activas — ese es de otra sección.
       preciosManuales: modPrecios ? {
-        material: esModoMlUnico() ? val('precioMaterialManual') / (p.ancho || 1) : val('precioMaterialManual'),
+        material: esModoMlUnico() ? val('precioMaterialManual') / (anchoUtilParaManual() || 1) : val('precioMaterialManual'),
         tornillo: val('precioTornilloManual'), remate: val('precioRemateManual'),
       } : null,
       montaje: {
