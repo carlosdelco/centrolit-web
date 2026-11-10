@@ -169,6 +169,12 @@
     // sustituye SOLO para este cálculo — el material se sigue cobrando por el área real.
     const montajeAreaManual = i.montaje && i.montaje.areaManual;
     const areaMontaje = montajeAreaManual != null && montajeAreaManual !== '' ? n(montajeAreaManual) : areaConDesp;
+    // ml de montaje de remates: igual criterio que el área de montaje de techo — el ml real
+    // instalado en obra puede no coincidir con el calculado/estimado (feedback real, nov 2026:
+    // "incluir ml de montaje de flashing como están los m2 de techo y pantalla"). Si se informa,
+    // sustituye SOLO para este cálculo — el costo de los flashings en sí no cambia.
+    const montajeRematesMlManual = i.montaje && i.montaje.rematesMlManual;
+    const rematesMlParaMontaje = montajeRematesMlManual != null && montajeRematesMlManual !== '' ? n(montajeRematesMlManual) : rematesMlFacturable;
     // Partidas adicionales del montaje que no dependen del área: días de grúa (p. ej. izado en
     // standing seam), andamios especiales y supervisor fijo en obra — cada obra las tiene o no.
     const diasGrua = n(i.montaje && i.montaje.diasGrua);
@@ -179,7 +185,7 @@
     // Montaje de techo y montaje de remates por separado (feedback real: precios y proveedores
     // distintos, se quieren ver como 2 líneas, no una sola mezclada).
     const montajeTechoImporte = incluirMontaje ? areaMontaje * precioMontajeM2 : 0;
-    const montajeRematesImporte = incluirMontaje ? rematesMlFacturable * precioMontajeMl : 0;
+    const montajeRematesImporte = incluirMontaje ? rematesMlParaMontaje * precioMontajeMl : 0;
     // Montaje de pantalla: línea aparte, opcional — obras con techo + pantalla a veces facturan el
     // montaje de la pantalla con su propio m² y precio, independiente del techo (feedback real,
     // nov 2026). Solo aplica si se informa un área > 0.
@@ -231,7 +237,7 @@
       tornillosPorM2, tornillosCant, tornilloPrecio, tornillosImporte,
       rematesMl, piezasRemate, rematesMlFacturable, rematePrecio, rematesImporte, rematesDetalle,
       secciones,
-      incluirMontaje, precioMontajeM2, precioMontajeMl, areaMontaje, montajeTechoImporte, montajeRematesImporte,
+      incluirMontaje, precioMontajeM2, precioMontajeMl, areaMontaje, rematesMlParaMontaje, montajeTechoImporte, montajeRematesImporte,
       pantallaArea, pantallaPrecioM2, montajePantallaImporte, montajeImporte,
       diasGrua, precioGruaDia, gruaImporte, andamios, supervisor,
       incluirFlete, precioFlete, fletes, fleteImporte,

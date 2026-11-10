@@ -154,6 +154,9 @@ const Cotizador = (() => {
         <label>m² de montaje — manual (opcional, vacío = usa el área calculada del material)</label>
         <input type="number" id="montajeAreaManual" step="1" min="0" placeholder="auto">
         <div class="hint">Úsalo cuando en obra hay que cortar una lámina para que quede a ras de la estructura — el m² real de montaje puede no coincidir con el calculado. No afecta el precio del material, solo el de montaje.</div>
+        <label>ml de montaje de remates — manual (opcional, vacío = usa el ml estimado/detallado de arriba)</label>
+        <input type="number" id="montajeRematesMlManual" step="1" min="0" placeholder="auto">
+        <div class="hint">Igual que el m² de montaje de arriba, pero para los flashings: úsalo cuando el ml real instalado no coincide con el calculado. No afecta el costo de los flashings en sí, solo el de su montaje.</div>
         <div class="row2">
           <div><label>m² de pantalla (opcional)</label><input type="number" id="montajePantallaArea" step="1" min="0" value="0"></div>
           <div><label>Montaje pantalla (US$/m²)</label><input type="number" id="montajePantallaPrecioM2" step="0.01" min="0" value="0"></div>
@@ -905,6 +908,7 @@ const Cotizador = (() => {
       montaje: {
         incluir: chk('incluirMontaje'), m2: val('precioMontajeM2'), ml: val('precioMontajeMl'),
         areaManual: val('montajeAreaManual'),
+        rematesMlManual: val('montajeRematesMlManual'),
         pantallaArea: val('montajePantallaArea'), pantallaPrecioM2: val('montajePantallaPrecioM2'),
         diasGrua: val('montajeDiasGrua'), precioGruaDia: val('montajePrecioGruaDia'),
         andamios: val('montajeAndamios'), supervisor: val('montajeSupervisor'),
@@ -1034,8 +1038,9 @@ const Cotizador = (() => {
       // proveedores distintos, no deberían verse mezclados en un solo renglón).
       filas.push(`<tr><td><strong>Montaje de techo</strong>${sub(`Instalación de techo — cuadrillas propias · ${r.areaMontaje.toFixed(2)} m²${r.areaMontaje !== r.areaConDesp ? ' (manual)' : ''}`, r.areaMontaje !== r.areaConDesp ? 'ingresado manualmente' : montajeDef ? 'valor de lista' : 'ingresado manualmente')}</td>
         <td class="r">—</td><td class="r">US$ ${fmt(r.precioMontajeM2)}/m²</td><td class="r">US$ ${fmt(r.montajeTechoImporte)}</td></tr>`);
-      if (r.rematesMlFacturable > 0 || r.montajeRematesImporte > 0) {
-        filas.push(`<tr><td><strong>Montaje de remates</strong>${sub(`Instalación de flashings — cuadrillas propias · ${r.rematesMlFacturable.toLocaleString('es-VE')} ml`, montajeDef ? 'valor de lista' : 'ingresado manualmente')}</td>
+      if (r.rematesMlParaMontaje > 0 || r.montajeRematesImporte > 0) {
+        const rematesManual = r.rematesMlParaMontaje !== r.rematesMlFacturable;
+        filas.push(`<tr><td><strong>Montaje de remates</strong>${sub(`Instalación de flashings — cuadrillas propias · ${r.rematesMlParaMontaje.toLocaleString('es-VE')} ml${rematesManual ? ' (manual)' : ''}`, rematesManual ? 'ingresado manualmente' : montajeDef ? 'valor de lista' : 'ingresado manualmente')}</td>
           <td class="r">—</td><td class="r">US$ ${fmt(r.precioMontajeMl)}/ml</td><td class="r">US$ ${fmt(r.montajeRematesImporte)}</td></tr>`);
       }
       if (r.montajePantallaImporte > 0) {
@@ -1239,10 +1244,10 @@ const Cotizador = (() => {
         xCell('Montaje de techo\nInstalación de techo — cuadrillas propias', 'sWrap'),
         xCell(`${d.areaMontaje.toFixed(2)} m²`), xCell(d.precioMontajeM2, 'sMoney', 'Number'), xCell(d.montajeTechoImporte, 'sMoney', 'Number'),
       ]));
-      if (d.rematesMlFacturable > 0 || d.montajeRematesImporte > 0) {
+      if (d.rematesMlParaMontaje > 0 || d.montajeRematesImporte > 0) {
         rows.push(xRow([
-          xCell('Montaje de remates\nInstalación de flashings — cuadrillas propias', 'sWrap'),
-          xCell(`${d.rematesMlFacturable} ml`), xCell(d.precioMontajeMl, 'sMoney', 'Number'), xCell(d.montajeRematesImporte, 'sMoney', 'Number'),
+          xCell(`Montaje de remates\nInstalación de flashings — cuadrillas propias${d.rematesMlParaMontaje !== d.rematesMlFacturable ? ' (manual)' : ''}`, 'sWrap'),
+          xCell(`${d.rematesMlParaMontaje} ml`), xCell(d.precioMontajeMl, 'sMoney', 'Number'), xCell(d.montajeRematesImporte, 'sMoney', 'Number'),
         ]));
       }
       if (d.montajePantallaImporte > 0) {
