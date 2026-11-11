@@ -308,3 +308,7 @@ textarea.ln-in{resize:vertical;font-family:inherit;}
   .ped-doc table,.ped-doc tr{break-inside:avoid;}
 }
 table.ped-tabla .pill{display:inline-block;margin-top:3px;padding:3px 9px;}
+
+/* ---------- Aviso de versión nueva (web) ---------- */
+.aviso-version{background:var(--amber-light);color:var(--brown);padding:8px 14px;font-size:13px;font-weight:bold;display:flex;gap:12px;align-items:center;justify-content:center;border-bottom:1px solid var(--border);}
+.aviso-version[hidden]{display:none;}

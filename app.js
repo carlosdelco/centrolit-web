@@ -6,6 +6,32 @@
 
 const WebApp = (() => {
   const root = document.getElementById('root');
+  // Versión de ESTA copia de la web (la pone scripts/build-web.js al publicar).
+  const WEB_VERSION = window.CENTROLIT_WEB_CONFIG?.webVersion || { version: 'sin versión', built: '' };
+
+  // Compara esta copia con la última publicada: version.json se pide SIEMPRE sin caché (el resto de
+  // ficheros los puede servir la caché del navegador hasta 10 min, por eso a veces se ve una versión
+  // vieja aunque ya se haya publicado la nueva). true = hay una más nueva, false = al día, null = no
+  // se pudo comprobar. Si hay una nueva, muestra el aviso con el botón de recargar.
+  async function comprobarVersion() {
+    try {
+      const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
+      if (!r.ok) return null;
+      const v = await r.json();
+      const nueva = !!v.version && v.version !== WEB_VERSION.version;
+      const aviso = document.getElementById('avisoVersion');
+      if (aviso) {
+        aviso.hidden = !nueva;
+        if (nueva) {
+          aviso.innerHTML = `Hay una versión nueva de la web (${esc(v.version)}); estás usando ${esc(WEB_VERSION.version)}. <button type="button" class="btn small" id="btnRecargarWeb">Recargar ahora</button>`;
+          aviso.onclick = (e) => { if (e.target.id === 'btnRecargarWeb') location.replace(location.pathname + '?r=' + Date.now()); };
+        }
+      }
+      return nueva;
+    } catch {
+      return null;
+    }
+  }
   const views = {};
   let vista = 'cotizador';
   let cfg = { demo: false, preciosFileId: '', kpisFileId: '', pedidosFileId: '', statusPedidosFileId: '', personalFileId: '' };
@@ -57,6 +83,7 @@ const WebApp = (() => {
       <button class="btn secondary" id="btnDemo">Probar con datos de demostración</button>
       ${WebAuth.isConfigured() ? '' : '<div class="login-note"><strong>Esta instancia aún no tiene configurado el inicio de sesión con Google.</strong> Mientras tanto puedes usar el modo demo.</div>'}
       <div class="login-note">Esta app pide permiso para leer y registrar en hojas de Google Sheets, y leer el fichero de estado de pedidos en Drive. El acceso a los datos lo decide Google Drive, no esta app, y no se guarda tu contraseña.</div>
+      <div class="login-note">Versión web: ${esc(WEB_VERSION.version)}</div>
     </div></div>`;
     document.getElementById('btnDemo').onclick = () => { cfgSave({ demo: true }); boot(); };
     document.getElementById('btnLogin').onclick = async (e) => {
@@ -101,9 +128,9 @@ const WebApp = (() => {
       <nav class="sidebar">
         <div class="brand"><img src="assets/logo.png" alt=""><div><div class="t1">Grupo Centrolit</div><div class="t2">Cotizador y Mando (web)</div></div></div>
         ${NAV.filter((n) => !n.soloAcceso || acceso.visible).map((n) => `<button class="navitem" data-v="${n.id}"><span class="ico">${n.icono}</span>${n.texto}</button>`).join('')}
-        <div class="sidebar-foot">${cfg.demo ? 'Modo demo' : esc(email || '')}</div>
+        <div class="sidebar-foot">${cfg.demo ? 'Modo demo' : esc(email || '')}<br>Web ${esc(WEB_VERSION.version)}</div>
       </nav>
-      <div class="main"><div class="topbar"><div><h1 id="tTitulo"></h1><div class="sub" id="tSub"></div></div><div class="right" id="tRight"></div></div>
+      <div class="main"><div class="aviso-version" id="avisoVersion" hidden></div><div class="topbar"><div><h1 id="tTitulo"></h1><div class="sub" id="tSub"></div></div><div class="right" id="tRight"></div></div>
       <div class="content"><div id="v-cotizador"></div><div id="v-calculadora" hidden></div><div id="v-pedidos" hidden></div><div id="v-clientes" hidden></div><div id="v-produccion" hidden></div><div id="v-personal" hidden></div><div id="v-dashboard" hidden></div><div id="v-ajustes" hidden></div></div></div></div>`;
     for (const id of ['cotizador', 'calculadora', 'pedidos', 'clientes', 'produccion', 'personal', 'dashboard', 'ajustes']) views[id] = document.getElementById('v-' + id);
 
@@ -119,6 +146,11 @@ const WebApp = (() => {
     montarModulos();
     if (vista === 'dashboard' && !acceso.visible) vista = 'cotizador';
     mostrar(vista);
+    comprobarVersion();
+    if (!window.__vigilaVersion) {
+      window.__vigilaVersion = true;
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) comprobarVersion(); });
+    }
   }
 
   // Opciones del módulo Pedidos: recetas y catálogo (para el requerimiento de materiales) y cómo
@@ -178,10 +210,24 @@ const WebApp = (() => {
         <div class="hint">Precios, KPIs y Personal deben ser hojas nativas de Google Sheets (ver docs/HOJAS-GOOGLE.md). El fichero de estado de pedidos es la excepción: es el .xlsx real del equipo tal cual vive en Drive. Si tu cuenta no tiene permiso sobre la hoja de KPIs, el Cuadro de Mando no aparece.</div>
         <div class="btnrow" style="margin-top:12px"><button class="btn" data-act="guardar">Guardar enlaces</button></div>
       </div>
+      <div class="card"><h2><span class="dot"></span>Acerca de</h2>
+        <dl class="kv">
+          <dt>Versión de la web</dt><dd>${esc(WEB_VERSION.version)}</dd>
+          <dt>Publicada</dt><dd>${WEB_VERSION.built ? esc(new Date(WEB_VERSION.built).toLocaleString('es-VE')) : '—'}</dd>
+        </dl>
+        <div class="btnrow" style="margin-top:12px"><button class="btn secondary" data-act="buscar-version">Buscar actualización</button></div>
+        <div class="hint" id="resultadoVersion">Si la versión publicada es más nueva que esta, aparecerá un aviso arriba para recargar.</div>
+      </div>
     </div>`;
     views.ajustes.onclick = async (e) => {
       const act = e.target.closest('[data-act]')?.dataset.act;
       if (!act) return;
+      if (act === 'buscar-version') {
+        const r = await comprobarVersion();
+        const el = views.ajustes.querySelector('#resultadoVersion');
+        if (el) el.textContent = r === null ? 'No se pudo comprobar (¿sin conexión?).' : r ? 'Hay una versión más nueva publicada: recarga la página (aviso arriba).' : 'Esta es la versión publicada más reciente.';
+        return;
+      }
       try {
         if (act === 'signin') { await WebAuth.signIn(); cfgSave({ demo: false }); }
         if (act === 'signout') WebAuth.signOut();
