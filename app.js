@@ -121,11 +121,24 @@ const WebApp = (() => {
     mostrar(vista);
   }
 
+  // Opciones del módulo Pedidos: recetas y catálogo (para el requerimiento de materiales) y cómo
+  // guardar las líneas editadas — escritorio (IPC) y web (Sheets API directo) difieren solo aquí.
+  function opcionesPedidos() {
+    const d = precios && precios.ok ? precios.data : null;
+    return {
+      recetas: d ? d.recetas || [] : [],
+      productos: d ? d.productos.map((p) => p.producto) : [],
+      anchos: d ? Object.fromEntries(d.productos.filter((p) => p.ancho_util).map((p) => [p.producto, p.ancho_util])) : {},
+      demo: !!cfg.demo,
+      guardarLineas: (ref, lineas) => WebData.guardarLineas(ref, lineas, cfg.pedidosFileId, cfg.demo),
+    };
+  }
+
   function montarModulos() {
     if (precios.ok) Cotizador.mount(views.cotizador, { precios, acceso, empresa, logoSrc: 'assets/logo.png', email: WebAuth.current()?.email, pedidosFileId: cfg.pedidosFileId, demo: cfg.demo });
     else views.cotizador.innerHTML = bloqueError(precios, true);
     Calculadora.mount(views.calculadora, { precios, irACotizador: (datos) => { mostrar('cotizador'); Cotizador.aplicarCalculoExterno(datos); } });
-    Pedidos.mount(views.pedidos, pedidos);
+    Pedidos.mount(views.pedidos, pedidos, opcionesPedidos());
     Clientes.mount(views.clientes, pedidos);
     Produccion.mount(views.produccion, pedidos);
     Personal.mount(views.personal, personal);

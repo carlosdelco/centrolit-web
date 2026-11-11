@@ -1,0 +1,93 @@
+[
+  {
+    "pedido_ref": "CTL-2026-0012",
+    "linea": 1,
+    "tipo": "material",
+    "producto": "Superpared SP50",
+    "codigo": "",
+    "descripcion": "Superpared SP50",
+    "cantidad": 240,
+    "unidad": "ml",
+    "nota": "",
+    "actualizado_por": "demo@centrolit.com.ve",
+    "actualizado_en": "2026-10-20T14:32:00.000Z"
+  },
+  {
+    "pedido_ref": "CTL-2026-0012",
+    "linea": 2,
+    "tipo": "fijacion",
+    "producto": "",
+    "codigo": "",
+    "descripcion": "Tornillo autotaladrante — fijación estándar",
+    "cantidad": 1800,
+    "unidad": "unid",
+    "nota": "",
+    "actualizado_por": "demo@centrolit.com.ve",
+    "actualizado_en": "2026-10-20T14:32:00.000Z"
+  },
+  {
+    "pedido_ref": "CTL-2026-0012",
+    "linea": 3,
+    "tipo": "flashing",
+    "producto": "",
+    "codigo": "USP50",
+    "descripcion": "Flashing U superior SP50",
+    "cantidad": 12,
+    "unidad": "pieza",
+    "nota": "",
+    "actualizado_por": "demo@centrolit.com.ve",
+    "actualizado_en": "2026-10-20T14:32:00.000Z"
+  },
+  {
+    "pedido_ref": "CTL-2026-0012",
+    "linea": 4,
+    "tipo": "partida",
+    "producto": "",
+    "codigo": "",
+    "descripcion": "Extractor eólico 24\"",
+    "cantidad": 4,
+    "unidad": "unid",
+    "nota": "",
+    "actualizado_por": "demo@centrolit.com.ve",
+    "actualizado_en": "2026-10-20T14:32:00.000Z"
+  },
+  {
+    "pedido_ref": "CTL-2026-0013",
+    "linea": 1,
+    "tipo": "material",
+    "producto": "AASS 0,45 mm (aislado)",
+    "codigo": "",
+    "descripcion": "AASS 0,45 mm (aislado)",
+    "cantidad": 310,
+    "unidad": "m2",
+    "nota": "",
+    "actualizado_por": "demo@centrolit.com.ve",
+    "actualizado_en": "2026-10-20T14:32:00.000Z"
+  },
+  {
+    "pedido_ref": "CTL-2026-0013",
+    "linea": 2,
+    "tipo": "fijacion",
+    "producto": "",
+    "codigo": "",
+    "descripcion": "Clip + tornillo AASS",
+    "cantidad": 744,
+    "unidad": "unid",
+    "nota": "",
+    "actualizado_por": "demo@centrolit.com.ve",
+    "actualizado_en": "2026-10-20T14:32:00.000Z"
+  },
+  {
+    "pedido_ref": "CTL-2026-0013",
+    "linea": 3,
+    "tipo": "flashing",
+    "producto": "",
+    "codigo": "",
+    "descripcion": "Remates / flashings (estimado)",
+    "cantidad": 48,
+    "unidad": "ml",
+    "nota": "",
+    "actualizado_por": "demo@centrolit.com.ve",
+    "actualizado_en": "2026-10-20T14:32:00.000Z"
+  }
+]

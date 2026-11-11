@@ -48,8 +48,8 @@ const WebData = (() => {
       return { areas, historial: hist.historial };
     }
     if (kind === 'pedidos') {
-      const [bridge, real] = await Promise.all([fetch('demo/pedidos.json').then((r) => r.json()), fetch('demo/status-pedidos.json').then((r) => r.json())]);
-      return { bridge, real };
+      const [bridge, real, lineas] = await Promise.all([fetch('demo/pedidos.json').then((r) => r.json()), fetch('demo/status-pedidos.json').then((r) => r.json()), fetch('demo/pedidos-lineas.json').then((r) => r.json())]);
+      return { bridge, real, lineas };
     }
     if (kind === 'personal') return fetch('demo/personal.json').then((r) => r.json());
     return fetch('demo/precios.json').then((r) => r.json());
@@ -89,6 +89,14 @@ const WebData = (() => {
         } catch {
           data.flashings = [];
           data.fijaciones = [];
+        }
+        // Recetas (materiales por producto, BOM): pestaña opcional aparte, para que si falta no
+        // arrastre a Flashings/Fijaciones (ni viceversa).
+        try {
+          const rawRec = await readTabs(fileId, ['Recetas'], token);
+          data.recetas = Parsers.parseRecetas(rawRec.Recetas || []);
+        } catch {
+          data.recetas = [];
         }
       }
       writeCache(kind, data);
@@ -148,15 +156,91 @@ const WebData = (() => {
     return Parsers.parseStatusPedidos(await xlsxAFilas(await r.arrayBuffer()));
   }
 
-  // data = { bridge: [...registrado desde el Cotizador], real: [...STATUS PEDIDOS.xlsx] }.
+  // Líneas de materiales de cada pedido (BOM). La pestaña se crea sola al guardar la primera.
+  const TAB_LINEAS = 'Pedidos_Lineas';
+  async function leerLineas(fileId, token) {
+    if (!fileId) return [];
+    try {
+      const raw = await readTabs(fileId, [TAB_LINEAS], token);
+      return Parsers.parsePedidoLineas(raw[TAB_LINEAS]);
+    } catch (e) {
+      if (e.status === 400) return []; // la pestaña todavía no existe
+      throw e;
+    }
+  }
+
+  async function sheetsReq(url, opts, token) {
+    const r = await fetch(url, {
+      method: opts.method || 'GET',
+      headers: { Authorization: `Bearer ${token}`, ...(opts.body ? { 'Content-Type': 'application/json' } : {}) },
+      body: opts.body ? JSON.stringify(opts.body) : undefined,
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      const e = new Error(j.error?.message || `HTTP ${r.status}`);
+      e.status = r.status;
+      throw e;
+    }
+    return r.json();
+  }
+
+  async function ensureTab(fileId, tabName, headers, token) {
+    const id = encodeURIComponent(fileId);
+    const meta = await sheetsReq(`${SHEETS_BASE}/${id}?fields=sheets.properties.title`, {}, token);
+    if ((meta.sheets || []).some((s) => s.properties && s.properties.title === tabName)) return;
+    await sheetsReq(`${SHEETS_BASE}/${id}:batchUpdate`, { method: 'POST', body: { requests: [{ addSheet: { properties: { title: tabName } } }] } }, token);
+    await sheetsReq(`${SHEETS_BASE}/${id}/values/${encodeURIComponent(tabName + '!A1')}?valueInputOption=RAW`, { method: 'PUT', body: { values: [headers] } }, token);
+  }
+
+  const TIPOS_LINEA = ['material', 'fijacion', 'flashing', 'partida'];
+  const limpiar = (s, max = 300) => String(s ?? '').slice(0, max);
+  function sanearLineas(lineas) {
+    if (!Array.isArray(lineas)) throw new Error('Líneas inválidas.');
+    if (lineas.length > 500) throw new Error('Demasiadas líneas (máximo 500 por pedido).');
+    return lineas
+      .map((l) => {
+        const cantidad = Number(l.cantidad);
+        return {
+          tipo: TIPOS_LINEA.includes(l.tipo) ? l.tipo : 'partida',
+          producto: limpiar(l.producto), codigo: limpiar(l.codigo, 60), descripcion: limpiar(l.descripcion),
+          cantidad: Number.isFinite(cantidad) && cantidad >= 0 ? cantidad : 0,
+          unidad: limpiar(l.unidad, 20), nota: limpiar(l.nota),
+        };
+      })
+      .filter((l) => l.cantidad > 0 && (l.producto || l.codigo || l.descripcion));
+  }
+
+  // Mismo comportamiento que pedidos-service.js > guardarLineas() (escritorio): reemplaza TODAS las
+  // líneas de un pedido leyendo y reescribiendo la pestaña — idempotente, última escritura gana.
+  async function guardarLineas(ref, lineas, fileId, demoMode) {
+    const clave = limpiar(ref, 120).trim();
+    if (!clave) throw new Error('Falta el pedido al que pertenecen las líneas.');
+    const ahora = new Date().toISOString();
+    const quien = WebAuth.current()?.email || '';
+    const guardadas = sanearLineas(lineas).map((l, i) => ({ pedido_ref: clave, linea: i + 1, ...l, actualizado_por: quien, actualizado_en: ahora }));
+    if (demoMode) return { ok: true, demo: true, lineas: guardadas };
+    if (!fileId) throw new Error('Falta configurar el fichero de Pedidos (Ajustes).');
+    const token = await WebAuth.getAccessToken();
+    const id = encodeURIComponent(fileId);
+    const cols = Parsers.COLUMNAS_PEDIDO_LINEAS;
+    await ensureTab(fileId, TAB_LINEAS, cols, token);
+    const raw = await readTabs(fileId, [TAB_LINEAS], token);
+    const otras = Parsers.parsePedidoLineas(raw[TAB_LINEAS]).filter((l) => l.pedido_ref !== clave);
+    const filas = [...otras, ...guardadas].map((l) => cols.map((c) => l[c] ?? ''));
+    await sheetsReq(`${SHEETS_BASE}/${id}/values/${encodeURIComponent(TAB_LINEAS)}:clear`, { method: 'POST', body: {} }, token);
+    await sheetsReq(`${SHEETS_BASE}/${id}/values/${encodeURIComponent(TAB_LINEAS + '!A1')}?valueInputOption=RAW`, { method: 'PUT', body: { values: [cols, ...filas] } }, token);
+    return { ok: true, lineas: guardadas };
+  }
+
+  // data = { bridge: [...registrado desde el Cotizador], real: [...STATUS PEDIDOS.xlsx], lineas: [...] }.
   async function getPedidos(fileId, statusFileId, tab, demoMode) {
     if (demoMode) return { ok: true, data: await demo('pedidos'), source: 'demo' };
     if (!fileId && !statusFileId) return { ok: false, code: 'sin_fichero', error: 'Falta configurar los ficheros de Pedidos (Ajustes).' };
     if (!WebAuth.current()) return { ok: false, code: 'no_session', error: 'Inicia sesión con tu cuenta de Google.' };
     try {
       const token = await WebAuth.getAccessToken();
-      const [bridge, real] = await Promise.all([leerBridge(fileId, tab, token), leerReal(statusFileId, token)]);
-      return { ok: true, data: { bridge, real }, fetchedAt: new Date().toISOString(), source: 'google' };
+      const [bridge, real, lineas] = await Promise.all([leerBridge(fileId, tab, token), leerReal(statusFileId, token), leerLineas(fileId, token)]);
+      return { ok: true, data: { bridge, real, lineas }, fetchedAt: new Date().toISOString(), source: 'google' };
     } catch (e) {
       if (e.code === 'no_session') return { ok: false, code: 'no_session', error: e.message };
       if (e.status === 403 || e.status === 404) return { ok: false, code: 'sin_acceso', error: 'Tu cuenta de Google no tiene acceso a alguno de los ficheros de Pedidos.' };
@@ -180,6 +264,15 @@ const WebData = (() => {
       const j = await r.json().catch(() => ({}));
       throw new Error(j.error?.message || `HTTP ${r.status}`);
     }
+    // Líneas de materiales (BOM): el pedido ya quedó registrado; si esto falla se avisa con claridad
+    // y se pueden agregar después desde la pestaña Pedidos.
+    if (Array.isArray(registro.lineas) && registro.lineas.length) {
+      try {
+        await guardarLineas(registro.origenOferta, registro.lineas, fileId, false);
+      } catch (e) {
+        throw new Error('El pedido se registró, pero no se pudieron guardar sus líneas de materiales: ' + e.message + ' Puedes agregarlas desde la pestaña Pedidos.');
+      }
+    }
     return { ok: true };
   }
 
@@ -200,5 +293,5 @@ const WebData = (() => {
     }
   }
 
-  return { getKpis, getPrecios, getPersonal, accesoKpis, pasarAPedido, getPedidos };
+  return { getKpis, getPrecios, getPersonal, accesoKpis, pasarAPedido, guardarLineas, getPedidos };
 })();

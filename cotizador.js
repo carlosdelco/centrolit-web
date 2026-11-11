@@ -937,6 +937,8 @@ const Cotizador = (() => {
         // literalmente "Material" sin indicar cuál sistema (punto de feedback real, nov 2026: "en
         // material que pueda decir el producto que estamos ofertando"). Admite override manual.
         s.nombreProducto = (sIn && sIn.nombreManual && sIn.nombreManual.trim()) || (prodSec ? prodSec.n : 'Material');
+        // Nombre de CATÁLOGO (no el manual): es la clave para buscar la receta de materiales (BOM).
+        s.productoCatalogo = prodSec ? prodSec.n : '';
       });
     }
     const pagoTxt = S.pago === 'efectivo' ? 'Contado, efectivo USD' : 'Bolívares a tasa BCV';
@@ -954,9 +956,18 @@ const Cotizador = (() => {
       contactoNombre: val('contactoNombre') || '', contactoTelefono: val('contactoTelefono') || '', contactoCorreo: val('contactoCorreo') || '', contacto,
       pago: pagoTxt, tipoObra: val('tipoObra') || '—', comentarios: val('comentarios').trim(),
       productoNombre: multi ? `Varias secciones (${r.secciones.length})` : (val('nombreProductoManual').trim() || p.n),
+      productoCatalogo: multi ? '' : p.n,
       catLabel: multi ? 'Secciones' : categoria, ancho: multi ? null : p.ancho,
       modo: multi ? null : S.modo, anchoUtil: multi ? null : (p.ancho || 0),
     };
+
+    // Líneas estructuradas de materiales (BOM): se guardan con "Pasar a pedido" para poder calcular
+    // el requerimiento de materiales por pedido y editarlo después en la pestaña Pedidos.
+    const fijSel = $('fijacionCatalogo') && val('fijacionCatalogo') !== '' ? cat.fijaciones[+val('fijacionCatalogo')] : null;
+    ultima.lineasMateriales = BomEngine.lineasDesdeOferta(ultima, {
+      nombreTornillo: fijSel ? fijSel.nombre : nombreTornillo,
+      flashings: cat.flashings.map((f) => ({ codigo: f.codigo, descripcion: f.descripcion })),
+    });
 
     const emp = S.empresa;
     // Sin logo de Centrolam como imagen disponible todavía (pedido real: "pueden colocar el logo
@@ -1452,6 +1463,7 @@ const Cotizador = (() => {
       resumenMaterial: ultima.secciones ? ultima.secciones.map((s) => s.nombre).join(' + ') : ultima.productoNombre,
       comentarios: ultima.comentarios || '',
       registradoPor: S.email || '',
+      lineas: ultima.lineasMateriales || [],
     };
     try {
       if (window.centrolit) await window.centrolit.pasarAPedido(registro);

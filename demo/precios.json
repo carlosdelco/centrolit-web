@@ -657,5 +657,19 @@
     "Vivienda / residencial",
     "Retechado / cambio de techo existente",
     "Otro"
+  ],
+  "recetas": [
+    {"producto":"TP4","material":"Acero (bobina)","categoria":"acero","base":"ml","unidad":"kg","cantidad_por_unidad":7.8,"merma_pct":6.5,"estado":"por_confirmar","nota":"[Ejemplo] Valor ficticio de demostración."},
+    {"producto":"TP4","material":"Poliestireno (aislante)","categoria":"aislante","base":"ml","unidad":"kg","cantidad_por_unidad":null,"merma_pct":6.5,"estado":"por_confirmar","nota":"[Ejemplo] Receta sin cantidad física todavía."},
+    {"producto":"TP4","material":"Pega (adhesivo)","categoria":"adhesivo","base":"ml","unidad":"kg","cantidad_por_unidad":null,"merma_pct":6.5,"estado":"por_confirmar","nota":"[Ejemplo] Receta sin cantidad física todavía."},
+    {"producto":"Superpared SP50","material":"Acero (bobina)","categoria":"acero","base":"ml","unidad":"kg","cantidad_por_unidad":8.18,"merma_pct":6.5,"estado":"por_confirmar","nota":"[Ejemplo] Valor ficticio de demostración."},
+    {"producto":"Superpared SP50","material":"Poliestireno (aislante)","categoria":"aislante","base":"ml","unidad":"kg","cantidad_por_unidad":null,"merma_pct":6.5,"estado":"por_confirmar","nota":"[Ejemplo] Receta sin cantidad física todavía."},
+    {"producto":"Superpared SP50","material":"Pega (adhesivo)","categoria":"adhesivo","base":"ml","unidad":"kg","cantidad_por_unidad":null,"merma_pct":6.5,"estado":"por_confirmar","nota":"[Ejemplo] Receta sin cantidad física todavía."},
+    {"producto":"SSA 0,45 mm (sencillo)","material":"Acero (bobina)","categoria":"acero","base":"m2","unidad":"kg","cantidad_por_unidad":4.15,"merma_pct":5,"estado":"por_confirmar","nota":"[Ejemplo] Valor ficticio de demostración."},
+    {"producto":"SSA 0,60 mm (sencillo)","material":"Acero (bobina)","categoria":"acero","base":"m2","unidad":"kg","cantidad_por_unidad":5.25,"merma_pct":5,"estado":"por_confirmar","nota":"[Ejemplo] Valor ficticio de demostración."},
+    {"producto":"AASS 0,45 mm (aislado)","material":"Acero (bobina)","categoria":"acero","base":"m2","unidad":"kg","cantidad_por_unidad":8.3,"merma_pct":5,"estado":"por_confirmar","nota":"[Ejemplo] Valor ficticio de demostración."},
+    {"producto":"AASS 0,45 mm (aislado)","material":"Poliestireno (aislante)","categoria":"aislante","base":"m2","unidad":"kg","cantidad_por_unidad":null,"merma_pct":5,"estado":"por_confirmar","nota":"[Ejemplo] Receta sin cantidad física todavía."},
+    {"producto":"AASS 0,60 mm (aislado)","material":"Acero (bobina)","categoria":"acero","base":"m2","unidad":"kg","cantidad_por_unidad":10.51,"merma_pct":5,"estado":"por_confirmar","nota":"[Ejemplo] Valor ficticio de demostración."},
+    {"producto":"AASS 0,60 mm (aislado)","material":"Poliestireno (aislante)","categoria":"aislante","base":"m2","unidad":"kg","cantidad_por_unidad":null,"merma_pct":5,"estado":"por_confirmar","nota":"[Ejemplo] Receta sin cantidad física todavía."}
   ]
 }

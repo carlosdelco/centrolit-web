@@ -124,6 +124,53 @@ function parseFijaciones(rows) {
     }));
 }
 
+// Recetas de materiales por producto (BOM): qué materias primas lleva cada producto y cuánto por
+// ml o por m² terminado. Pestaña opcional `Recetas` en la lista de precios — si no existe se
+// devuelve vacío y la app muestra "sin receta" en vez de fallar. `cantidad_por_unidad` queda null
+// (no 0) si la celda viene vacía: significa "solo hay costo, falta la cantidad física".
+function parseRecetas(rows) {
+  return tabla(rows)
+    .filter((f) => f.producto && f.material)
+    .map((f) => ({
+      producto: String(f.producto).trim(),
+      material: String(f.material).trim(),
+      categoria: String(f.categoria ?? '').trim(),
+      base: String(f.base ?? '').trim().toLowerCase().replace('²', '2'),
+      unidad: String(f.unidad ?? '').trim(),
+      cantidad_por_unidad: num(f.cantidad_por_unidad),
+      merma_pct: num(f.merma_pct) ?? 0,
+      estado: norm(f.estado) === 'confirmada' ? 'confirmada' : 'por_confirmar',
+      nota: String(f.nota ?? '').trim(),
+    }));
+}
+
+// Cabecera de la pestaña `Pedidos_Lineas` (se crea sola la primera vez que se guardan líneas).
+// Compartida por escritorio y web para que ambos escriban exactamente el mismo esquema.
+const COLUMNAS_PEDIDO_LINEAS = [
+  'pedido_ref', 'linea', 'tipo', 'producto', 'codigo', 'descripcion', 'cantidad', 'unidad', 'nota',
+  'actualizado_por', 'actualizado_en',
+];
+
+// Líneas de materiales de cada pedido. `pedido_ref` es el origen_oferta del Cotizador (pedidos
+// pendientes de código) o el código real (P341, S458…) cuando se agregan a mano.
+function parsePedidoLineas(rows) {
+  return tabla(rows)
+    .filter((f) => f.pedido_ref && (f.descripcion || f.producto || f.codigo))
+    .map((f) => ({
+      pedido_ref: String(f.pedido_ref).trim(),
+      linea: num(f.linea) ?? 0,
+      tipo: norm(f.tipo) || 'partida',
+      producto: String(f.producto ?? '').trim(),
+      codigo: String(f.codigo ?? '').trim(),
+      descripcion: String(f.descripcion ?? '').trim(),
+      cantidad: num(f.cantidad) ?? 0,
+      unidad: String(f.unidad ?? '').trim(),
+      nota: String(f.nota ?? '').trim(),
+      actualizado_por: String(f.actualizado_por ?? '').trim(),
+      actualizado_en: String(f.actualizado_en ?? '').trim(),
+    }));
+}
+
 // Listado de personal (nombre + cargo + sede + teléfono, sin cédula ni dirección — ver
 // docs/HOJAS-GOOGLE.md > 5: el fichero real del equipo trae datos personales sensibles que no se
 // cargan aquí).
@@ -239,5 +286,5 @@ function fechaISO(v) {
   return '';
 }
 
-return { norm, num, tabla, parsePrecios, parseFlashings, parseFijaciones, parseKpis, parseStatusPedidos, parsePersonal, fechaISO };
+return { norm, num, tabla, parsePrecios, parseFlashings, parseFijaciones, parseRecetas, parsePedidoLineas, COLUMNAS_PEDIDO_LINEAS, parseKpis, parseStatusPedidos, parsePersonal, fechaISO };
 });
