@@ -132,7 +132,7 @@ const Pedidos = (() => {
     box.innerHTML = `<div class="card ped-panel">
       <div class="ped-panel-head">
         <h2 style="margin:0"><span class="dot"></span>Detalle de producción</h2>
-        <button type="button" class="btn small" data-ln="pdf">📄 Generar PDF</button>
+        <button type="button" class="btn small" data-ln="pdf">📄 Crear hoja de producción (PDF)</button>
       </div>
       ${demo}
       <div class="ped-meta">
@@ -153,6 +153,7 @@ const Pedidos = (() => {
       ${f.fusionado ? '<div class="hint" style="margin:6px 0 0">Este pedido ya tiene su código en STATUS PEDIDOS.xlsx: se muestran juntos el estado del fichero y los materiales del Cotizador.</div>' : ''}
       ${f.origen === 'real' && !f._raw ? '<div class="hint" style="margin:6px 0 0">Pedido de STATUS PEDIDOS.xlsx: el código y la planta vienen de ese fichero (la app solo lo lee).</div>' : ''}
 
+      ${!edit.lineas.length && f._raw ? `<div class="ped-aviso"><b>Este pedido no tiene materiales guardados.</b> Se registró antes de que el Cotizador guardara el detalle de materiales (o sin ellos). Para generarlos: abre la oferta en el Cotizador (<i>Ofertas guardadas</i>), arma los materiales como siempre y pulsa <b>Pasar a pedido</b> otra vez — se actualiza este mismo pedido, no se duplica. También puedes cargarlos a mano abajo.${f.registros > 1 ? `<br><br>Nota: esta oferta estaba registrada ${f.registros} veces en la hoja; aquí se usa el registro más reciente.` : ''}</div>` : ''}
       <h3 class="ped-h3">Materiales del pedido</h3>
       <div class="hint" style="margin:0 0 8px">Lo que lleva este pedido, tal como lo generó el Cotizador. Se puede corregir: la cantidad real puede diferir de la cotizada. Cantidad 0 o ✕ quita la línea.</div>
       ${edit.lineas.length ? `<div class="tablewrap"><table class="tabla-ped ln-tabla">

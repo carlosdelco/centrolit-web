@@ -250,7 +250,8 @@ const WebData = (() => {
     const head = cab.map(Parsers.norm);
     const iRef = head.indexOf('origen_oferta');
     if (iRef < 0) throw new Error('La hoja de Pedidos no tiene la columna origen_oferta.');
-    const idx = raw.findIndex((r, i) => i > 0 && String(r[iRef] ?? '').trim() === clave);
+    let idx = -1;
+    for (let i = raw.length - 1; i > 0 && idx < 0; i--) if (String(raw[i][iRef] ?? '').trim() === clave) idx = i; // la más reciente
     if (idx < 0) throw new Error('No se encontró ese pedido en la hoja de Pedidos (¿se borró la fila?).');
     const v = PedidosUtil.validarCodigo(codigo, Parsers.tabla(raw), clave);
     if (!v.ok) throw new Error(v.error);
@@ -314,15 +315,40 @@ const WebData = (() => {
     const token = await WebAuth.getAccessToken();
     const fila = { ...registro, fechaCreacion: new Date().toISOString(), estadoImportacion: 'pendiente' };
     const valores = COLUMNAS_PEDIDO.map((c) => fila[c] ?? '');
-    const qs = new URLSearchParams({ valueInputOption: 'RAW', insertDataOption: 'INSERT_ROWS' });
-    const r = await fetch(`${SHEETS_BASE}/${encodeURIComponent(fileId)}/values/${encodeURIComponent(tab || 'Pedidos')}:append?${qs}`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ values: [valores] }),
-    });
-    if (!r.ok) {
-      const j = await r.json().catch(() => ({}));
-      throw new Error(j.error?.message || `HTTP ${r.status}`);
+    const hoja = tab || 'Pedidos';
+    // Si esta oferta ya estaba registrada, se ACTUALIZA su fila (datos y montos actuales) en vez de
+    // agregar otra: antes cada "Pasar a pedido" duplicaba la fila (caso real: PAISBEL quedó dos
+    // veces). Se conservan la fecha original, la planta y el estado ya guardados.
+    let actualizado = false;
+    const clave = String(registro.origenOferta ?? '').trim();
+    let existente = null;
+    if (clave) {
+      const raw = (await readTabs(fileId, [hoja], token))[hoja] || [];
+      const iRef = (raw[0] || []).map(Parsers.norm).indexOf('origen_oferta');
+      if (iRef >= 0) {
+        for (let i = raw.length - 1; i > 0 && !existente; i--) {
+          if (String(raw[i][iRef] ?? '').trim() === clave) existente = { fila: i + 1, valores: raw[i] };
+        }
+      }
+    }
+    if (existente) {
+      actualizado = true;
+      const nuevos = COLUMNAS_PEDIDO.map((c, j) => (j === 0 || j === 18 ? existente.valores[j] || fila[c] : j === 2 ? existente.valores[j] || fila[c] || '' : fila[c] ?? ''));
+      await sheetsReq(`${SHEETS_BASE}/${encodeURIComponent(fileId)}/values:batchUpdate`, {
+        method: 'POST',
+        body: { valueInputOption: 'RAW', data: [{ range: `${hoja}!A${existente.fila}:S${existente.fila}`, values: [nuevos] }] },
+      }, token);
+    } else {
+      const qs = new URLSearchParams({ valueInputOption: 'RAW', insertDataOption: 'INSERT_ROWS' });
+      const r = await fetch(`${SHEETS_BASE}/${encodeURIComponent(fileId)}/values/${encodeURIComponent(hoja)}:append?${qs}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: [valores] }),
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j.error?.message || `HTTP ${r.status}`);
+      }
     }
     // Líneas de materiales (BOM): el pedido ya quedó registrado; si esto falla se avisa con claridad
     // y se pueden agregar después desde la pestaña Pedidos.
@@ -333,7 +359,7 @@ const WebData = (() => {
         throw new Error('El pedido se registró, pero no se pudieron guardar sus líneas de materiales: ' + e.message + ' Puedes agregarlas desde la pestaña Pedidos.');
       }
     }
-    return { ok: true };
+    return { ok: true, actualizado };
   }
 
   // Igual que data-service.js (escritorio): intenta abrir el fichero; 403/404 = sin acceso = el

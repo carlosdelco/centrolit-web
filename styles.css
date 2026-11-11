@@ -253,10 +253,13 @@ table.ln-tabla td{vertical-align:middle;}
 .ln-desc2 .ln-cod{width:100%;}
 
 /* ---------- Pedidos: lista a la izquierda, detalle de producción a la derecha ---------- */
-.ped-layout{display:grid;grid-template-columns:minmax(0,1fr) 640px;gap:18px;align-items:start;}
+.ped-layout{display:grid;grid-template-columns:minmax(0,1fr) clamp(420px,44%,640px);gap:18px;align-items:start;}
 .ped-lista{min-width:0;}
 .ped-detalle{position:sticky;top:12px;max-height:calc(100vh - 100px);overflow:auto;}
-@media (max-width:1150px){.ped-layout{grid-template-columns:1fr;}.ped-detalle{position:static;max-height:none;}}
+@media (max-width:860px){.ped-layout{grid-template-columns:1fr;}.ped-detalle{position:static;max-height:none;}}
+/* En ventanas medianas la lista deja solo lo esencial (código, planta, cliente, producto). */
+@media (max-width:1400px){table.ped-tabla th:nth-child(n+5),table.ped-tabla td:nth-child(n+5){display:none;}}
+.ped-aviso{background:var(--amber-light);color:var(--brown);border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.5;margin:12px 0 0;}
 table.tabla-ped.ped-tabla th,table.tabla-ped.ped-tabla td{padding:8px 9px;font-size:12.5px;}
 table.tabla-ped tr[data-ref]{cursor:pointer;}
 table.tabla-ped tr[data-ref]:hover td{background:var(--surface-2);}

@@ -39,7 +39,15 @@
     const real = (data.real || []).map((f) => ({ origen: 'real', ref: f.pedido, conCodigo: true, ...f }));
     const porCodigo = new Map(real.map((f) => [normCodigo(f.pedido), f]));
     const usados = new Set();
+    // Si la misma oferta se pasó a pedido más de una vez (había quedado así en la hoja antes de que
+    // "Pasar a pedido" actualizara en vez de duplicar), se usa solo el registro MÁS RECIENTE: es el
+    // que refleja los montos/datos actuales y evita claves repetidas (no se podría seleccionar el
+    // segundo). `registros` indica cuántas filas había.
+    const ultimo = new Map();
+    (data.bridge || []).forEach((f, i) => ultimo.set(String(f.origen_oferta ?? '').trim() || '#' + i, i));
+    const cuenta = (ref) => (data.bridge || []).filter((x) => String(x.origen_oferta ?? '').trim() === ref).length;
     const bridge = (data.bridge || [])
+      .filter((f, i) => ultimo.get(String(f.origen_oferta ?? '').trim() || '#' + i) === i)
       .slice()
       .reverse()
       .map((f) => {
@@ -47,7 +55,7 @@
         const coincide = codigo ? porCodigo.get(codigo) : null;
         if (coincide) {
           usados.add(coincide);
-          return { ...coincide, ref: f.origen_oferta, alt: coincide.pedido, fusionado: true, _raw: f };
+          return { ...coincide, ref: f.origen_oferta, alt: coincide.pedido, fusionado: true, registros: cuenta(String(f.origen_oferta ?? '').trim()), _raw: f };
         }
         return {
           origen: 'bridge',
@@ -59,6 +67,7 @@
           tipoProducto: f.resumen_material,
           etapaFabricacion: 'sin_dato',
           etapaMontaje: 'sin_dato',
+          registros: cuenta(String(f.origen_oferta ?? '').trim()),
           _raw: f,
         };
       });

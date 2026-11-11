@@ -1468,9 +1468,12 @@ const Cotizador = (() => {
       lineas: ultima.lineasMateriales || [],
     };
     try {
-      if (window.centrolit) await window.centrolit.pasarAPedido(registro);
-      else await WebData.pasarAPedido(registro, S.pedidosFileId, 'Pedidos', S.demo);
-      toast('Oferta registrada como pedido.');
+      const res = window.centrolit
+        ? await window.centrolit.pasarAPedido(registro)
+        : await WebData.pasarAPedido(registro, S.pedidosFileId, 'Pedidos', S.demo);
+      toast(res && res.actualizado
+        ? 'Este pedido ya estaba registrado: se actualizó con los datos y materiales actuales de la oferta (no se duplicó).'
+        : 'Oferta registrada como pedido.');
     } catch (e) {
       toast('No se pudo pasar a pedido: ' + e.message, 'error');
     }
