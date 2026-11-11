@@ -131,6 +131,10 @@ const WebApp = (() => {
       anchos: d ? Object.fromEntries(d.productos.filter((p) => p.ancho_util).map((p) => [p.producto, p.ancho_util])) : {},
       demo: !!cfg.demo,
       guardarLineas: (ref, lineas) => WebData.guardarLineas(ref, lineas, cfg.pedidosFileId, cfg.demo),
+      actualizarPedido: (ref, cambios) => WebData.actualizarPedido(ref, cambios, cfg.pedidosFileId, 'Pedidos', cfg.demo),
+      imprimir: async () => { window.print(); },
+      logoSrc: 'assets/logo.png',
+      empresa,
     };
   }
 

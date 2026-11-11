@@ -192,22 +192,82 @@ const WebData = (() => {
     await sheetsReq(`${SHEETS_BASE}/${id}/values/${encodeURIComponent(tabName + '!A1')}?valueInputOption=RAW`, { method: 'PUT', body: { values: [headers] } }, token);
   }
 
-  const TIPOS_LINEA = ['material', 'fijacion', 'flashing', 'partida'];
+  const TIPOS_LINEA = ['material', 'lamina', 'fijacion', 'flashing', 'partida', 'observacion'];
   const limpiar = (s, max = 300) => String(s ?? '').slice(0, max);
   function sanearLineas(lineas) {
     if (!Array.isArray(lineas)) throw new Error('Líneas inválidas.');
     if (lineas.length > 500) throw new Error('Demasiadas líneas (máximo 500 por pedido).');
+    let hayObs = false;
     return lineas
       .map((l) => {
         const cantidad = Number(l.cantidad);
+        const largo = Number(l.largo_m);
+        const tipo = TIPOS_LINEA.includes(l.tipo) ? l.tipo : 'partida';
         return {
-          tipo: TIPOS_LINEA.includes(l.tipo) ? l.tipo : 'partida',
-          producto: limpiar(l.producto), codigo: limpiar(l.codigo, 60), descripcion: limpiar(l.descripcion),
+          tipo,
+          producto: limpiar(l.producto), codigo: limpiar(l.codigo, 60), descripcion: limpiar(l.descripcion, tipo === 'observacion' ? 2000 : 300),
           cantidad: Number.isFinite(cantidad) && cantidad >= 0 ? cantidad : 0,
-          unidad: limpiar(l.unidad, 20), nota: limpiar(l.nota),
+          unidad: limpiar(l.unidad, 20),
+          largo_m: tipo === 'lamina' && Number.isFinite(largo) && largo >= 0 ? largo : '',
+          nota: limpiar(l.nota),
         };
       })
-      .filter((l) => l.cantidad > 0 && (l.producto || l.codigo || l.descripcion));
+      // Una observación para producción no tiene cantidad (solo texto, una por pedido); el resto de
+      // las líneas necesita cantidad > 0 y algo que las identifique.
+      .filter((l) => {
+        if (l.tipo === 'observacion') {
+          if (hayObs || !l.descripcion.trim()) return false;
+          hayObs = true;
+          return true;
+        }
+        return l.cantidad > 0 && (l.producto || l.codigo || l.descripcion);
+      });
+  }
+
+  const letraColumna = (i) => {
+    let s = '';
+    for (let n = i + 1; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + ((n - 1) % 26)) + s;
+    return s;
+  };
+
+  // Mismo comportamiento que pedidos-service.js > actualizarPedido() (escritorio): edita el código
+  // real y la planta de un pedido del Cotizador en su fila de la hoja Pedidos. La columna
+  // codigo_pedido se crea sola en la cabecera si todavía no existe.
+  async function actualizarPedido(ref, { codigo, planta } = {}, fileId, tab, demoMode) {
+    const clave = limpiar(ref, 120).trim();
+    if (!clave) throw new Error('Falta el pedido que se quiere editar.');
+    const plantaOk = planta === undefined ? undefined : PedidosUtil.plantaBridge(planta);
+    if (demoMode) {
+      const v = PedidosUtil.validarCodigo(codigo, [], clave);
+      if (!v.ok) throw new Error(v.error);
+      return { ok: true, demo: true, codigo: v.codigo, planta: plantaOk };
+    }
+    if (!fileId) throw new Error('Falta configurar el fichero de Pedidos (Ajustes).');
+    const hoja = tab || 'Pedidos';
+    const token = await WebAuth.getAccessToken();
+    const raw = (await readTabs(fileId, [hoja], token))[hoja] || [];
+    const cab = raw[0] || [];
+    const head = cab.map(Parsers.norm);
+    const iRef = head.indexOf('origen_oferta');
+    if (iRef < 0) throw new Error('La hoja de Pedidos no tiene la columna origen_oferta.');
+    const idx = raw.findIndex((r, i) => i > 0 && String(r[iRef] ?? '').trim() === clave);
+    if (idx < 0) throw new Error('No se encontró ese pedido en la hoja de Pedidos (¿se borró la fila?).');
+    const v = PedidosUtil.validarCodigo(codigo, Parsers.tabla(raw), clave);
+    if (!v.ok) throw new Error(v.error);
+    const data = [];
+    let iCod = head.indexOf('codigo_pedido');
+    if (iCod < 0) {
+      iCod = cab.length;
+      data.push({ range: `${hoja}!${letraColumna(iCod)}1`, values: [['codigo_pedido']] });
+    }
+    data.push({ range: `${hoja}!${letraColumna(iCod)}${idx + 1}`, values: [[v.codigo]] });
+    if (plantaOk !== undefined) {
+      const iPl = head.indexOf('planta_sugerida');
+      if (iPl < 0) throw new Error('La hoja de Pedidos no tiene la columna planta_sugerida.');
+      data.push({ range: `${hoja}!${letraColumna(iPl)}${idx + 1}`, values: [[plantaOk]] });
+    }
+    await sheetsReq(`${SHEETS_BASE}/${encodeURIComponent(fileId)}/values:batchUpdate`, { method: 'POST', body: { valueInputOption: 'RAW', data } }, token);
+    return { ok: true, codigo: v.codigo, planta: plantaOk };
   }
 
   // Mismo comportamiento que pedidos-service.js > guardarLineas() (escritorio): reemplaza TODAS las
@@ -293,5 +353,5 @@ const WebData = (() => {
     }
   }
 
-  return { getKpis, getPrecios, getPersonal, accesoKpis, pasarAPedido, guardarLineas, getPedidos };
+  return { getKpis, getPrecios, getPersonal, accesoKpis, pasarAPedido, guardarLineas, actualizarPedido, getPedidos };
 })();

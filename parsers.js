@@ -147,7 +147,7 @@ function parseRecetas(rows) {
 // Cabecera de la pestaña `Pedidos_Lineas` (se crea sola la primera vez que se guardan líneas).
 // Compartida por escritorio y web para que ambos escriban exactamente el mismo esquema.
 const COLUMNAS_PEDIDO_LINEAS = [
-  'pedido_ref', 'linea', 'tipo', 'producto', 'codigo', 'descripcion', 'cantidad', 'unidad', 'nota',
+  'pedido_ref', 'linea', 'tipo', 'producto', 'codigo', 'descripcion', 'cantidad', 'unidad', 'largo_m', 'nota',
   'actualizado_por', 'actualizado_en',
 ];
 
@@ -165,6 +165,7 @@ function parsePedidoLineas(rows) {
       descripcion: String(f.descripcion ?? '').trim(),
       cantidad: num(f.cantidad) ?? 0,
       unidad: String(f.unidad ?? '').trim(),
+      largo_m: num(f.largo_m),
       nota: String(f.nota ?? '').trim(),
       actualizado_por: String(f.actualizado_por ?? '').trim(),
       actualizado_en: String(f.actualizado_en ?? '').trim(),

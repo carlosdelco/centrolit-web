@@ -19,7 +19,8 @@
     "resumen_material": "Superpared SP50",
     "comentarios": "",
     "registrado_por": "demo@centrolit.com.ve",
-    "estado_importacion": "importado"
+    "estado_importacion": "importado",
+    "codigo_pedido": "P999"
   },
   {
     "fila": 3,
@@ -41,6 +42,7 @@
     "resumen_material": "AASS 0,45 mm (aislado)",
     "comentarios": "Cliente pidió revisar colores disponibles.",
     "registrado_por": "demo@centrolit.com.ve",
-    "estado_importacion": "pendiente"
+    "estado_importacion": "pendiente",
+    "codigo_pedido": ""
   }
 ]

@@ -6,7 +6,7 @@ const Cotizador = (() => {
   const TIPOS_OBRA_DEFECTO = ['Nave industrial / galpón', 'Centro comercial / local comercial', 'Institucional', 'Vivienda / residencial', 'Retechado', 'Otro'];
 
   let root, cat, params, textos, tiposObra, puedeInterna;
-  let S = { pago: 'efectivo', modo: 'm2', vista: 'cliente', imagen: null, plano: null, autoComentario: '', autoNumero: '', secciones: [], remateModo: 'estimado', flashingsItems: [], partidas: [], fletes: [] };
+  let S = { pago: 'efectivo', modo: 'm2', vista: 'cliente', imagen: null, plano: null, autoComentario: '', autoNumero: '', secciones: [], remateModo: 'estimado', flashingsItems: [], partidas: [], fletes: [], despiece: null };
   let ultima = null;
 
   const $ = (id) => root.querySelector('#' + id);
@@ -939,6 +939,7 @@ const Cotizador = (() => {
         s.nombreProducto = (sIn && sIn.nombreManual && sIn.nombreManual.trim()) || (prodSec ? prodSec.n : 'Material');
         // Nombre de CATÁLOGO (no el manual): es la clave para buscar la receta de materiales (BOM).
         s.productoCatalogo = prodSec ? prodSec.n : '';
+        s.despiece = sIn ? despieceVigente(sIn.despiece, sIn.pv, areaSeccion(sIn)) : null;
       });
     }
     const pagoTxt = S.pago === 'efectivo' ? 'Contado, efectivo USD' : 'Bolívares a tasa BCV';
@@ -957,6 +958,7 @@ const Cotizador = (() => {
       pago: pagoTxt, tipoObra: val('tipoObra') || '—', comentarios: val('comentarios').trim(),
       productoNombre: multi ? `Varias secciones (${r.secciones.length})` : (val('nombreProductoManual').trim() || p.n),
       productoCatalogo: multi ? '' : p.n,
+      despiece: multi ? null : despieceVigente(S.despiece, pvActual(), area()),
       catLabel: multi ? 'Secciones' : categoria, ancho: multi ? null : p.ancho,
       modo: multi ? null : S.modo, anchoUtil: multi ? null : (p.ancho || 0),
     };
@@ -1480,7 +1482,7 @@ const Cotizador = (() => {
         id: S.ofertaId || undefined,
         numOferta: val('numOferta'), cliente: val('cliente') || '(sin nombre)', proyecto: val('proyecto') || '',
         campos: snapshot(), modo: S.modo, pago: S.pago, imagen: S.imagen, plano: S.plano, secciones: S.secciones,
-        remateModo: S.remateModo, flashingsItems: S.flashingsItems, partidas: S.partidas, fletes: S.fletes,
+        remateModo: S.remateModo, flashingsItems: S.flashingsItems, partidas: S.partidas, fletes: S.fletes, despiece: S.despiece,
       };
       const r = await ofertasGuardarImpl(record);
       S.ofertaId = r.id;
@@ -1499,6 +1501,7 @@ const Cotizador = (() => {
       S.remateModo = r.remateModo || 'estimado';
       S.flashingsItems = r.flashingsItems || [];
       S.partidas = r.partidas || [];
+      S.despiece = r.despiece || null;
       // Migración: ofertas guardadas antes de este cambio no tienen fletes[] sino un monto único
       // en el campo precioFlete (ya eliminado del formulario) — se recupera como una sola línea.
       const precioFleteLegado = r.campos && parseFloat(r.campos.precioFlete);
@@ -1582,6 +1585,13 @@ const Cotizador = (() => {
     return { modo: 'm2', area: Math.round(areaM2 * 100) / 100, mlAncho: 0, mlLargo: 0 };
   }
 
+  // Despiece de láminas (cantidad x largo por lámina) que llega de la Calculadora. Solo se usa si
+  // sigue vigente: mismo producto y misma área que cuando llegó — si el usuario cambió el producto
+  // o las medidas después, el despiece viejo sería engañoso para producción y se descarta. NO se
+  // deduce de los metros tecleados a mano ("largo total" y "ancho" se usan de formas distintas).
+  const pvActual = () => val('categoria') + '||' + val('producto');
+  const despieceVigente = (d, pv, area) => (d && d.pv === pv && Math.abs((d.area || 0) - area) < 0.01 ? d : null);
+
   // Puente con la Calculadora de láminas/correas. Bug real reportado (varios usuarios, nov 2026):
   // cuando el Cotizador ya tenía "Cotizar por secciones" activo (típico de quien cotiza varios
   // techos — justo quienes más usan la Calculadora con varias áreas), esta función se limitaba a
@@ -1602,7 +1612,9 @@ const Cotizador = (() => {
         const pv = s.pv || productosPlanos()[0]?.value || '';
         const am = areaComoModo(pv, s.areaM2 || 0, s.ml);
         const tornillosCantManual = s.tornillos != null ? Math.round(s.tornillos) : '';
-        return { id: 's' + Math.random().toString(36).slice(2, 8), nombre: s.nombre || '', pv, rematesMl: 0, tornillosCantManual, ...am };
+        const sec = { id: 's' + Math.random().toString(36).slice(2, 8), nombre: s.nombre || '', pv, rematesMl: 0, tornillosCantManual, ...am };
+        sec.despiece = s.cantLam > 0 && s.largoLam > 0 ? { pv, cantLam: s.cantLam, largoLam: s.largoLam, area: areaSeccion(sec) } : null;
+        return sec;
       });
       toggleSecciones();
       renderSecciones();
@@ -1634,6 +1646,9 @@ const Cotizador = (() => {
       $('tornillosManualChk').checked = true;
       toggleBox('tornillosManualChk');
       $('tornillosCantManual').value = Math.round(tornillosCant);
+      S.despiece = pv && unaSeccion && unaSeccion.cantLam > 0 && unaSeccion.largoLam > 0
+        ? { pv: pvActual(), cantLam: unaSeccion.cantLam, largoLam: unaSeccion.largoLam, area: area() }
+        : null;
     }
     // Remates/flashings calculados en la Calculadora (punto 4 del feedback de Violeta) — antes no
     // se mandaban nunca, así que la oferta se quedaba con el modo "Estimado" en 0 ml / US$ 0. En

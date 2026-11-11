@@ -249,5 +249,59 @@ table.tabla-ped td.mono{font-family:var(--mono);font-size:12.5px;}
 table.ln-tabla td{vertical-align:middle;}
 .ln-in{width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font:inherit;font-size:12.5px;background:var(--surface);color:inherit;}
 .ln-in.ln-num{width:100px;text-align:right;font-variant-numeric:tabular-nums;}
-.ln-desc2{display:flex;gap:6px;}
-.ln-desc2 .ln-cod{width:110px;flex:0 0 110px;}
+.ln-desc2{display:flex;flex-direction:column;gap:4px;}
+.ln-desc2 .ln-cod{width:100%;}
+
+/* ---------- Pedidos: lista a la izquierda, detalle de producción a la derecha ---------- */
+.ped-layout{display:grid;grid-template-columns:minmax(0,1fr) 640px;gap:18px;align-items:start;}
+.ped-lista{min-width:0;}
+.ped-detalle{position:sticky;top:12px;max-height:calc(100vh - 100px);overflow:auto;}
+@media (max-width:1150px){.ped-layout{grid-template-columns:1fr;}.ped-detalle{position:static;max-height:none;}}
+table.tabla-ped.ped-tabla th,table.tabla-ped.ped-tabla td{padding:8px 9px;font-size:12.5px;}
+table.tabla-ped tr[data-ref]{cursor:pointer;}
+table.tabla-ped tr[data-ref]:hover td{background:var(--surface-2);}
+table.tabla-ped tr.sel td{background:var(--surface-2);}
+table.tabla-ped tr.sel td:first-child{box-shadow:inset 3px 0 0 var(--navy);}
+.ped-vacio{color:var(--muted);font-size:13px;line-height:1.5;}
+.ped-panel-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px;}
+.ped-meta{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0 4px;}
+.ped-fijo{padding:6px 0;font-weight:bold;}
+.ped-panel .ped-info{padding:0;grid-template-columns:1fr 1fr;gap:3px 14px;font-size:12.5px;margin-top:8px;}
+.ped-h3{font-size:14px;margin:18px 0 6px;color:var(--navy);}
+.ped-panel table.tabla-ped th,.ped-panel table.tabla-ped td{padding:6px 7px;font-size:12px;}
+.ped-panel .ln-num{width:74px;}
+.ped-panel .ln-tabla td{padding:6px 5px;}
+.ped-panel .ln-tabla select[data-f="unidad"]{width:84px;}
+.ped-panel .ln-tabla th:first-child,.ped-panel .ln-tabla td:first-child{width:74px;}
+.ped-panel .ln-nota{margin-top:4px;}
+textarea.ln-in{resize:vertical;font-family:inherit;}
+
+/* ---------- Hoja de producción (PDF del pedido) ---------- */
+#docPedidoPrint{display:none;}
+.ped-doc{color:#1b2a3a;padding:10mm 8mm;font-size:11px;}
+.ped-doc-head{display:flex;align-items:center;gap:16px;border-bottom:3px solid #1b2a3a;padding-bottom:8px;}
+.ped-doc-logo img{height:54px;display:block;}
+.ped-doc-titulo{flex:1;}
+.ped-doc-titulo .t{font-size:20px;font-weight:bold;}
+.ped-doc-titulo .s{color:#5c6b77;font-size:12px;}
+.ped-doc-meta{text-align:right;font-size:12px;line-height:1.55;}
+.ped-doc-info{display:grid;grid-template-columns:1fr 1fr;gap:3px 24px;margin:10px 0;font-size:11.5px;}
+.ped-doc-info span{color:#5c6b77;}
+.ped-doc h3{font-size:13px;margin:14px 0 5px;color:#1b2a3a;border-bottom:1px solid #ccd3d8;padding-bottom:2px;}
+.ped-doc table{width:100%;border-collapse:collapse;font-size:11px;}
+.ped-doc th{background:#1b2a3a;color:#fff;text-align:left;padding:4px 6px;font-size:10px;text-transform:uppercase;}
+.ped-doc td{padding:4px 6px;border-bottom:1px solid #dfe3e6;vertical-align:top;}
+.ped-doc table.tabla-ped th{font-size:10px;padding:4px 6px;}
+.ped-doc table.tabla-ped td{font-size:11px;padding:4px 6px;}
+.ped-doc .r{text-align:right;}
+.ped-doc .nota{color:#5c6b77;font-style:italic;font-size:10.5px;font-weight:normal;}
+.ped-doc .obs{white-space:normal;background:#f4f6f7;border-radius:4px;padding:6px 8px;margin:0;}
+.ped-doc-firmas{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:36px;}
+.ped-doc-firmas div{border-top:1px solid #1b2a3a;padding-top:4px;font-size:10.5px;color:#5c6b77;}
+.ped-doc-pie{margin-top:16px;font-size:9px;color:#8a97a1;text-align:center;}
+@media print{
+  body.imprimiendo-pedido > *:not(#docPedidoPrint){display:none !important;}
+  body.imprimiendo-pedido #docPedidoPrint{display:block !important;}
+  .ped-doc table,.ped-doc tr{break-inside:avoid;}
+}
+table.ped-tabla .pill{display:inline-block;margin-top:3px;padding:3px 9px;}

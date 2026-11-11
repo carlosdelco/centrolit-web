@@ -262,7 +262,7 @@ const Calculadora = (() => {
         // no una tasa US$/m² aproximada repartida entre todas (feedback real: "lo que aparece en
         // la Calculadora debe ser lo mismo que en el Cotizador").
         const secciones = rl.filas
-          .map((r, i) => ({ nombre: r.nombre, areaM2: r.m2, ml: r.ml, tornillos: r.tornillos, pv: filasLam[i] ? filasLam[i].pv : '' }))
+          .map((r, i) => ({ nombre: r.nombre, areaM2: r.m2, ml: r.ml, tornillos: r.tornillos, pv: filasLam[i] ? filasLam[i].pv : '', largoLam: r.largoLam, cantLam: r.cantLam }))
           .filter((s) => s.areaM2 > 0);
         // Flashings calculados aquí (punto 4 del feedback de Violeta) — antes no se mandaban,
         // así que el Cotizador se quedaba en modo "Estimado" con 0 ml / US$ 0.

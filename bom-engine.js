@@ -44,6 +44,13 @@
       const q = cantidadMaterial(modo, anchoUtil, areaConDesp);
       L.push({ tipo: 'material', producto, codigo: '', descripcion: descripcion || producto, cantidad: r2(q.cantidad), unidad: q.unidad, nota: nota || '' });
     };
+    // Despiece de láminas (cantidad x largo): solo cuando el Cotizador lo recibió explícito de la
+    // Calculadora y sigue vigente (el llamador lo pasa ya validado en `despiece`). Nunca se deduce de
+    // los metros tecleados a mano: 'largo total' y 'ancho' se usan de formas distintas.
+    const lamina = (producto, descripcion, despiece, nota) => {
+      if (!despiece || !(n(despiece.cantLam) > 0) || !(n(despiece.largoLam) > 0)) return;
+      L.push({ tipo: 'lamina', producto, codigo: '', descripcion: descripcion || producto, cantidad: n(despiece.cantLam), unidad: 'lámina', largo_m: r2(n(despiece.largoLam)), nota: nota || '' });
+    };
     const fijacion = (cantidad, nota) => {
       L.push({ tipo: 'fijacion', producto: '', codigo: '', descripcion: nombreTornillo, cantidad: n(cantidad), unidad: 'unid', nota: nota || '' });
     };
@@ -51,10 +58,12 @@
     if (Array.isArray(o.secciones) && o.secciones.length) {
       o.secciones.forEach((s) => {
         material(s.productoCatalogo || '', s.nombreProducto, s.modo, s.anchoUtil, s.areaConDesp, s.nombre);
+        lamina(s.productoCatalogo || '', s.nombre, s.despiece, s.nombre);
         fijacion(s.tornillosCant, s.nombre);
       });
     } else {
       material(o.productoCatalogo || '', o.productoNombre, o.modo, o.anchoUtil, o.areaConDesp, '');
+      lamina(o.productoCatalogo || '', o.productoNombre, o.despiece, '');
       fijacion(o.tornillosCant, '');
     }
 
@@ -82,7 +91,8 @@
    *     solo hay costo y falta la cantidad física), merma_pct, estado:'confirmada'|'por_confirmar', nota}]
    *   anchos: { [producto]: ancho_util (m) } — para convertir ml↔m² cuando la línea y la receta usan
    *     unidades distintas.
-   * @returns {{materiales, accesorios, pendientes, sinReceta}}
+   * @returns {{materiales, accesorios, despiece, pendientes, sinReceta}}  `despiece` = líneas 'lamina'
+   *   (cantidad x largo en m, con ml). Las líneas 'observacion' se ignoran aquí (las maneja la UI).
    */
   function calcularMateriales({ lineas = [], recetas = [], anchos = {} } = {}) {
     const porProducto = new Map();
@@ -102,10 +112,18 @@
     const accesorios = new Map();
     const pendientes = [];
     const sinReceta = [];
+    const despiece = [];
 
     for (const l of lineas) {
+      if (l.tipo === 'observacion') continue;
       const cant = n(l.cantidad);
       if (!(cant > 0)) continue;
+
+      if (l.tipo === 'lamina') {
+        const largo = n(l.largo_m);
+        despiece.push({ producto: l.producto || '', descripcion: l.descripcion || '', nota: l.nota || '', cantidad: cant, largo_m: largo, ml: r2(cant * largo) });
+        continue;
+      }
 
       if (l.tipo !== 'material') {
         const clave = [l.tipo, norm(l.codigo || l.descripcion), unidadNorm(l.unidad)].join('|');
@@ -153,6 +171,7 @@
     return {
       materiales: [...materiales.values()].map((m) => ({ ...m, cantidad: r2(m.cantidad) })),
       accesorios: [...accesorios.values()].map((a) => ({ ...a, cantidad: r2(a.cantidad) })),
+      despiece,
       pendientes,
       sinReceta,
     };
