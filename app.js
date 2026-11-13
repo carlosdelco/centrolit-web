@@ -36,7 +36,7 @@ const WebApp = (() => {
   let vista = 'cotizador';
   let cfg = { demo: false, preciosFileId: '', kpisFileId: '', pedidosFileId: '', statusPedidosFileId: '', personalFileId: '' };
   let empresa = {};
-  let acceso = null, precios = null, kpis = null, pedidos = null, personal = null;
+  let acceso = null, precios = null, kpis = null, pedidos = null, ofertas = null, personal = null;
 
   function cfgLoad() {
     // Por defecto del build (config/app.config.json, vía scripts/build-web.js): así nadie tiene
@@ -102,10 +102,11 @@ const WebApp = (() => {
   }
 
   async function cargarTodo(refresh) {
-    [precios, acceso, pedidos, personal] = await Promise.all([
+    [precios, acceso, pedidos, ofertas, personal] = await Promise.all([
       WebData.getPrecios({ fileId: cfg.preciosFileId, demoMode: cfg.demo, refresh }),
       WebData.accesoKpis(cfg.kpisFileId, cfg.demo),
       WebData.getPedidos(cfg.pedidosFileId, cfg.statusPedidosFileId, 'Pedidos', cfg.demo),
+      WebData.getOfertas(cfg.pedidosFileId, cfg.demo),
       WebData.getPersonal({ fileId: cfg.personalFileId, demoMode: cfg.demo, refresh }),
     ]);
     kpis = acceso.visible ? await WebData.getKpis({ fileId: cfg.kpisFileId, demoMode: cfg.demo, refresh }) : null;
@@ -117,6 +118,7 @@ const WebApp = (() => {
     const NAV = [
       { id: 'cotizador', icono: '🧮', texto: 'Cotizador' },
       { id: 'calculadora', icono: '📐', texto: 'Calculadora' },
+      { id: 'ofertas', icono: '📨', texto: 'Ofertas' },
       { id: 'pedidos', icono: '📦', texto: 'Pedidos' },
       { id: 'clientes', icono: '👤', texto: 'Clientes' },
       { id: 'produccion', icono: '🏭', texto: 'Producción' },
@@ -131,15 +133,15 @@ const WebApp = (() => {
         <div class="sidebar-foot">${cfg.demo ? 'Modo demo' : esc(email || '')}<br>Web ${esc(WEB_VERSION.version)}</div>
       </nav>
       <div class="main"><div class="aviso-version" id="avisoVersion" hidden></div><div class="topbar"><div><h1 id="tTitulo"></h1><div class="sub" id="tSub"></div></div><div class="right" id="tRight"></div></div>
-      <div class="content"><div id="v-cotizador"></div><div id="v-calculadora" hidden></div><div id="v-pedidos" hidden></div><div id="v-clientes" hidden></div><div id="v-produccion" hidden></div><div id="v-personal" hidden></div><div id="v-dashboard" hidden></div><div id="v-ajustes" hidden></div></div></div></div>`;
-    for (const id of ['cotizador', 'calculadora', 'pedidos', 'clientes', 'produccion', 'personal', 'dashboard', 'ajustes']) views[id] = document.getElementById('v-' + id);
+      <div class="content"><div id="v-cotizador"></div><div id="v-calculadora" hidden></div><div id="v-ofertas" hidden></div><div id="v-pedidos" hidden></div><div id="v-clientes" hidden></div><div id="v-produccion" hidden></div><div id="v-personal" hidden></div><div id="v-dashboard" hidden></div><div id="v-ajustes" hidden></div></div></div></div>`;
+    for (const id of ['cotizador', 'calculadora', 'ofertas', 'pedidos', 'clientes', 'produccion', 'personal', 'dashboard', 'ajustes']) views[id] = document.getElementById('v-' + id);
 
     root.querySelector('.sidebar').onclick = (e) => {
       const b = e.target.closest('[data-v]');
       if (b) mostrar(b.dataset.v);
     };
     document.getElementById('tRight').onclick = (e) => e.target.closest('[data-act="refrescar"]') && refrescar();
-    for (const v of ['cotizador', 'calculadora', 'pedidos', 'clientes', 'produccion', 'personal', 'dashboard']) {
+    for (const v of ['cotizador', 'calculadora', 'ofertas', 'pedidos', 'clientes', 'produccion', 'personal', 'dashboard']) {
       views[v].onclick = (e) => e.target.closest('[data-act="refrescar"]') && refrescar();
     }
 
@@ -170,10 +172,40 @@ const WebApp = (() => {
     };
   }
 
+  // Opciones del módulo Ofertas (mismo comportamiento que en escritorio, vía Sheets API directo). Al ganar
+  // una oferta se registra un pedido, así que se recarga la lista de Pedidos y lo que se deriva de ella.
+  function opcionesOfertas() {
+    return {
+      logoSrc: 'assets/logo.png',
+      accion: {
+        ganada: (id) => WebData.ofertaGanada(id, cfg.pedidosFileId, cfg.demo),
+        perdida: (id, motivo, nota) => WebData.ofertaPerdida(id, motivo, nota, cfg.pedidosFileId, cfg.demo),
+        reabrir: (id) => WebData.ofertaReabrir(id, cfg.pedidosFileId, cfg.demo),
+      },
+      recargar: async () => { ofertas = await WebData.getOfertas(cfg.pedidosFileId, cfg.demo); return ofertas; },
+      alCambiar: async () => {
+        pedidos = await WebData.getPedidos(cfg.pedidosFileId, cfg.statusPedidosFileId, 'Pedidos', cfg.demo);
+        Pedidos.mount(views.pedidos, pedidos, opcionesPedidos());
+        Clientes.mount(views.clientes, pedidos);
+        Produccion.mount(views.produccion, pedidos);
+      },
+      irAPedidos: () => mostrar('pedidos'),
+    };
+  }
+
+  // Lo llama el Cotizador al enviar una oferta: recarga la lista y la abre en la pestaña Ofertas.
+  async function ofertaEnviada(id) {
+    ofertas = await WebData.getOfertas(cfg.pedidosFileId, cfg.demo);
+    Ofertas.mount(views.ofertas, ofertas, opcionesOfertas());
+    mostrar('ofertas');
+    Ofertas.abrir(id);
+  }
+
   function montarModulos() {
-    if (precios.ok) Cotizador.mount(views.cotizador, { precios, acceso, empresa, logoSrc: 'assets/logo.png', email: WebAuth.current()?.email, pedidosFileId: cfg.pedidosFileId, demo: cfg.demo });
+    if (precios.ok) Cotizador.mount(views.cotizador, { precios, acceso, empresa, logoSrc: 'assets/logo.png', email: WebAuth.current()?.email, pedidosFileId: cfg.pedidosFileId, demo: cfg.demo, alEnviarOferta: ofertaEnviada });
     else views.cotizador.innerHTML = bloqueError(precios, true);
     Calculadora.mount(views.calculadora, { precios, irACotizador: (datos) => { mostrar('cotizador'); Cotizador.aplicarCalculoExterno(datos); } });
+    Ofertas.mount(views.ofertas, ofertas, opcionesOfertas());
     Pedidos.mount(views.pedidos, pedidos, opcionesPedidos());
     Clientes.mount(views.clientes, pedidos);
     Produccion.mount(views.produccion, pedidos);
@@ -273,6 +305,7 @@ const WebApp = (() => {
     const titulos = {
       cotizador: ['Cotizador', 'Genera la propuesta técnico-comercial y expórtala a PDF o Excel.', precios && estadoDatos(precios, 'Precios')],
       calculadora: ['Calculadora', 'Láminas, correas y tornillos (Standing Seam) — herramienta aparte del Cotizador para comparar.', ''],
+      ofertas: ['Ofertas', 'Ofertas enviadas desde el Cotizador: márcalas como ganadas (pasan a Pedidos) o perdidas.', ofertas && estadoDatos(ofertas, 'Ofertas')],
       pedidos: ['Pedidos', 'Pedidos reales (STATUS PEDIDOS.xlsx) y ofertas pasadas a pedido desde el Cotizador.', pedidos && estadoDatos(pedidos, 'Pedidos')],
       clientes: ['Clientes', 'Derivado de los pedidos reales, con datos de contacto cuando vienen del Cotizador.', pedidos && estadoDatos(pedidos, 'Pedidos')],
       produccion: ['Producción', 'Tablero de estado de fabricación y montaje.', pedidos && estadoDatos(pedidos, 'Pedidos')],

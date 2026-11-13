@@ -235,8 +235,8 @@ const Cotizador = (() => {
       <button class="btn" data-act="ofertas-guardadas">📂 Ofertas guardadas</button>
     </div>
     <div class="hint">Guardado solo en este equipo (ver "Plano del cliente" arriba). Permite reabrir y seguir editando una oferta más tarde.</div>
-    <div class="btnrow"><button class="btn" data-act="pasar-a-pedido">📦 Pasar a pedido</button></div>
-    <div class="hint">Registra esta oferta como pedido en la pestaña "Pedidos", para seguimiento del equipo.</div>`;
+    <div class="btnrow"><button class="btn" data-act="enviar-a-ofertas">📨 Enviar a Ofertas</button></div>
+    <div class="hint">Registra esta oferta (tal como la ve el cliente) en la pestaña "Ofertas", para dar seguimiento. Allí se marca como ganada (pasa a Pedidos) o perdida.</div>`;
   }
 
   function docHtml() {
@@ -270,7 +270,7 @@ const Cotizador = (() => {
   // ---------- Montaje / UI ----------
   // logoSrc: ruta del logo relativa a la página que llama (escritorio y web sirven los
   // mismos ficheros desde carpetas distintas, por eso no se puede hardcodear aquí).
-  function mount(container, { precios, acceso, empresa, logoSrc, email, pedidosFileId, demo }) {
+  function mount(container, { precios, acceso, empresa, logoSrc, email, pedidosFileId, demo, alEnviarOferta }) {
     const previo = root ? snapshot() : null;
     root = container;
     const d = precios.data;
@@ -284,6 +284,7 @@ const Cotizador = (() => {
     S.email = email || '';
     S.pedidosFileId = pedidosFileId || '';
     S.demo = !!demo;
+    S.alEnviarOferta = alEnviarOferta || null;
 
     root.innerHTML = `<div class="cot-grid">
       <div class="cot-form">${formHtml()}</div>
@@ -735,7 +736,7 @@ const Cotizador = (() => {
       if (act === 'xlsx') exportarExcel();
       if (act === 'guardar-oferta') guardarOferta();
       if (act === 'ofertas-guardadas') abrirPanelOfertas();
-      if (act === 'pasar-a-pedido') pasarAPedido();
+      if (act === 'enviar-a-ofertas') enviarAOfertas();
     });
   }
 
@@ -963,7 +964,7 @@ const Cotizador = (() => {
       modo: multi ? null : S.modo, anchoUtil: multi ? null : (p.ancho || 0),
     };
 
-    // Líneas estructuradas de materiales (BOM): se guardan con "Pasar a pedido" para poder calcular
+    // Líneas estructuradas de materiales (BOM): se guardan al ganar la oferta (Ofertas → Pedidos) para poder calcular
     // el requerimiento de materiales por pedido y editarlo después en la pestaña Pedidos.
     const fijSel = $('fijacionCatalogo') && val('fijacionCatalogo') !== '' ? cat.fijaciones[+val('fijacionCatalogo')] : null;
     ultima.lineasMateriales = BomEngine.lineasDesdeOferta(ultima, {
@@ -1439,16 +1440,37 @@ const Cotizador = (() => {
     return true;
   }
 
-  // ---------- Pasar a pedido ----------
+  // ---------- Enviar a Ofertas ----------
+  // La oferta ya no se pasa directo a Pedidos: se envía a la pestaña "Ofertas" (seguimiento), donde se
+  // marca ganada (→ se registra como pedido, con estos mismos datos y materiales) o perdida (con motivo).
   const PLANTA_POR_CATEGORIA = { 'Standing Seam': 'S', 'Paneles y Láminas': 'P' };
 
-  async function pasarAPedido() {
+  // Instantánea del documento TAL COMO SE LE ENTREGA AL CLIENTE: se copia #doc sin la vista interna
+  // (costos y márgenes), sin avisos solo-pantalla, sin etiquetas "estimado/calculado", sin firmas y
+  // sin imágenes (el logo se vuelve a poner al mostrarla; el plano/render del cliente pesa demasiado
+  // para una celda de Google Sheets).
+  function instantaneaDocumento() {
+    const doc = $('doc');
+    if (!doc) return '';
+    const c = doc.cloneNode(true);
+    c.querySelectorAll('#internaSection, #confidencialFlag, .interna-only-flag, .screen-only-note, .badge-est, .sign-note, .sign, .doc-image, .doc-foot').forEach((n) => n.remove());
+    c.querySelectorAll('img').forEach((n) => n.remove());
+    c.querySelectorAll('[hidden]').forEach((n) => n.remove());
+    c.querySelectorAll('*').forEach((n) => { n.removeAttribute('id'); n.removeAttribute('style'); });
+    return c.innerHTML.replace(/>s+</g, '><').trim();
+  }
+
+  async function enviarAOfertas() {
     if (!ultima) return;
-    if (ultima.precioFaltante) { toast('Hay un producto sin precio de lista confirmado — no se puede pasar a pedido.', 'error'); return; }
+    if (ultima.precioFaltante) { toast('Hay un producto sin precio de lista confirmado — no se puede enviar la oferta.', 'error'); return; }
     if (!ultima.cliente || ultima.cliente === '—') { toast('Falta el nombre del cliente.', 'error'); return; }
-    if (!S.pedidosFileId) { toast('Falta configurar el fichero de Pedidos (Ajustes).', 'error'); return; }
+    if (!S.pedidosFileId && !S.demo) { toast('Falta configurar el fichero de Pedidos (Ajustes).', 'error'); return; }
+    // El número es el que escribe la persona en "N° de oferta" (ultima.docNum trae el prefijo
+    // "OFERTA N° " y, vacío, queda "OFERTA N° —", que no sirve como identificador).
+    const numero = val('numOferta').trim();
+    if (!numero) { toast('Pon un N° de oferta antes de enviarla a Ofertas (arriba, en los datos de la oferta).', 'error'); return; }
     const registro = {
-      origenOferta: ultima.docNum || val('numOferta') || '',
+      origenOferta: numero,
       plantaSugerida: ultima.secciones ? '' : (PLANTA_POR_CATEGORIA[ultima.catLabel] || 'V'),
       cliente: ultima.cliente,
       rifCliente: ultima.clienteRif || '',
@@ -1467,15 +1489,19 @@ const Cotizador = (() => {
       registradoPor: S.email || '',
       lineas: ultima.lineasMateriales || [],
     };
+    const detalle = instantaneaDocumento();
     try {
       const res = window.centrolit
-        ? await window.centrolit.pasarAPedido(registro)
-        : await WebData.pasarAPedido(registro, S.pedidosFileId, 'Pedidos', S.demo);
-      toast(res && res.actualizado
-        ? 'Este pedido ya estaba registrado: se actualizó con los datos y materiales actuales de la oferta (no se duplicó).'
-        : 'Oferta registrada como pedido.');
+        ? await window.centrolit.seguimientoEnviar({ registro, detalle })
+        : await WebData.enviarOferta(registro, detalle, S.pedidosFileId, S.demo);
+      toast(res && res.demo
+        ? 'Demo: así se vería en Ofertas (en modo demo no se guarda nada).'
+        : res && res.actualizado
+          ? 'La oferta ya estaba en Ofertas: se actualizó con los datos actuales (no se duplicó).'
+          : 'Oferta enviada a la pestaña Ofertas.');
+      if (S.alEnviarOferta) S.alEnviarOferta(numero);
     } catch (e) {
-      toast('No se pudo pasar a pedido: ' + e.message, 'error');
+      toast('No se pudo enviar la oferta: ' + e.message, 'error');
     }
   }
 

@@ -362,6 +362,72 @@ const WebData = (() => {
     return { ok: true, actualizado };
   }
 
+  // ---------- Seguimiento de ofertas (pestaña "Ofertas" del Sheet de Pedidos) ----------
+  // La lógica es la MISMA que en escritorio (src/shared/ofertas-core.js); aquí solo cambia cómo se
+  // habla con Google Sheets (fetch directo) y el modo demo (memoria de la sesión, no se guarda).
+  const TAB_OFERTAS = 'Ofertas';
+  let demoOfertasRaw = null;
+
+  async function ioOfertas(fileId, demoMode, tab) {
+    if (demoMode) {
+      if (!demoOfertasRaw) {
+        const base = await fetch('demo/ofertas.json').then((r) => r.json());
+        demoOfertasRaw = [OfertasCore.COLUMNAS, ...base.map((o) => OfertasCore.COLUMNAS.map((c) => o[c] ?? ''))];
+      }
+      return {
+        leer: async () => demoOfertasRaw,
+        asegurar: async () => {},
+        agregar: async (fila) => { demoOfertasRaw.push(fila); },
+        escribirFila: async (n, fila) => { demoOfertasRaw[n - 1] = fila; },
+        pasarAPedido: async () => ({ ok: true, demo: true }),
+      };
+    }
+    if (!fileId) throw new Error('Falta configurar el fichero de Pedidos (Ajustes).');
+    const hoja = tab || TAB_OFERTAS;
+    const token = await WebAuth.getAccessToken();
+    const id = encodeURIComponent(fileId);
+    const ultima = letraColumna(OfertasCore.COLUMNAS.length - 1);
+    return {
+      leer: async () => {
+        try {
+          return (await readTabs(fileId, [hoja], token))[hoja] || [];
+        } catch (e) {
+          if (e.status === 400) return []; // la pestaña todavía no existe: se crea al enviar la primera oferta
+          throw e;
+        }
+      },
+      asegurar: () => ensureTab(fileId, hoja, OfertasCore.COLUMNAS, token),
+      agregar: (fila) => sheetsReq(`${SHEETS_BASE}/${id}/values/${encodeURIComponent(hoja)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, { method: 'POST', body: { values: [fila] } }, token),
+      escribirFila: (n, fila) => sheetsReq(`${SHEETS_BASE}/${id}/values:batchUpdate`, { method: 'POST', body: { valueInputOption: 'RAW', data: [{ range: `${hoja}!A${n}:${ultima}${n}`, values: [fila] }] } }, token),
+      pasarAPedido: (registro) => pasarAPedido(registro, fileId, 'Pedidos', false),
+    };
+  }
+
+  const ofertasCore = async (fileId, demoMode, tab) => OfertasCore.crearOfertas(await ioOfertas(fileId, demoMode, tab));
+  const quienOfertas = () => WebAuth.current()?.email || '';
+
+  async function enviarOferta(registro, detalle, fileId, demoMode) {
+    const r = await (await ofertasCore(fileId, demoMode)).enviar(registro, detalle, quienOfertas());
+    return demoMode ? { ...r, demo: true } : r;
+  }
+  async function ofertaGanada(id, fileId, demoMode) { return (await ofertasCore(fileId, demoMode)).ganada(id, quienOfertas()); }
+  async function ofertaPerdida(id, motivo, nota, fileId, demoMode) { return (await ofertasCore(fileId, demoMode)).perdida(id, { motivo, nota }, quienOfertas()); }
+  async function ofertaReabrir(id, fileId, demoMode) { return (await ofertasCore(fileId, demoMode)).reabrir(id); }
+
+  // Mismo formato {ok, data, ...} que getPedidos, para reusar bloqueError().
+  async function getOfertas(fileId, demoMode) {
+    if (!demoMode && !fileId) return { ok: false, code: 'sin_fichero', error: 'Falta configurar el fichero de Pedidos (Ajustes).' };
+    if (!demoMode && !WebAuth.current()) return { ok: false, code: 'no_session', error: 'Inicia sesión con tu cuenta de Google.' };
+    try {
+      const data = await (await ofertasCore(fileId, demoMode)).listar();
+      return { ok: true, data, fetchedAt: new Date().toISOString(), source: demoMode ? 'demo' : 'google' };
+    } catch (e) {
+      if (e.code === 'no_session') return { ok: false, code: 'no_session', error: e.message };
+      if (e.status === 403 || e.status === 404) return { ok: false, code: 'sin_acceso', error: 'Tu cuenta de Google no tiene acceso al fichero de Pedidos, donde se guardan las ofertas.' };
+      return { ok: false, code: 'error', error: e.message };
+    }
+  }
+
   // Igual que data-service.js (escritorio): intenta abrir el fichero; 403/404 = sin acceso = el
   // Cuadro de Mando se oculta. Esto es lo único que decide si el módulo aparece.
   async function accesoKpis(fileId, demoMode) {
@@ -379,5 +445,5 @@ const WebData = (() => {
     }
   }
 
-  return { getKpis, getPrecios, getPersonal, accesoKpis, pasarAPedido, guardarLineas, actualizarPedido, getPedidos };
+  return { getKpis, getPrecios, getPersonal, accesoKpis, pasarAPedido, guardarLineas, actualizarPedido, getPedidos, enviarOferta, ofertaGanada, ofertaPerdida, ofertaReabrir, getOfertas };
 })();
