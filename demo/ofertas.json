@@ -58,5 +58,25 @@
     "detalle_1": "<div class=\"doc-head\"><div class=\"doc-head-logo\"><img alt=\"Centrolit\"><div class=\"doc-head-info\">[Ejemplo] Grupo Centrolit</div></div><div class=\"meta\"><div class=\"numoferta\">DEMO-2026-0095</div><div>28/10/2026</div></div></div><div class=\"doc-title\">Propuesta Técnico-Comercial</div><div class=\"doc-info\"><div><span class=\"l\">Cliente</span><strong>Galpones Ejemplo, S.A.</strong></div><div><span class=\"l\">Ubicación</span>Valencia</div></div><div class=\"doc-comentarios\">[Ejemplo] A continuación presentamos la propuesta para el suministro e instalación del sistema de cubierta.</div><table class=\"items\"><thead><tr><th>Descripción</th><th class=\"r\">Cantidad</th><th class=\"r\">Precio unit.</th><th class=\"r\">Importe (US$)</th></tr></thead><tbody><tr><td>TP4</td><td class=\"r\">90,00 ml</td><td class=\"r\">US$ 38,90</td><td class=\"r\">US$ 3.501,00</td></tr><tr><td>Montaje</td><td class=\"r\">87,30 m²</td><td class=\"r\">US$ 8,00</td><td class=\"r\">US$ 696,00</td></tr></tbody></table><div class=\"totals\"><div class=\"r\"><span>Subtotal</span><span>US$ 4.413,80</span></div><div class=\"r\"><span>IVA 16%</span><span>US$ 706,21</span></div><div class=\"r total\"><span>TOTAL</span><span>US$ 5.120,01</span></div></div><div class=\"notes\"><strong>Notas:</strong><br>1. [Ejemplo] Validez de la oferta: 7 días.<br>2. [Ejemplo] Forma de pago: contado.</div>",
     "detalle_2": "",
     "detalle_3": ""
+  },
+  {
+    "oferta_id": "DEMO-2025-0042",
+    "fecha": "2025-09-15T14:00:00.000Z",
+    "vendedor": "demo@centrolit.com.ve",
+    "cliente": "Agroindustrial Demo, C.A.",
+    "ciudad_obra": "Valencia",
+    "tipo_obra": "Nave industrial / galpón",
+    "forma_pago": "Contado, efectivo USD",
+    "monto_usd": 12750,
+    "resumen": "Maxipanel",
+    "estado": "ganada",
+    "motivo_perdida": "",
+    "nota_cierre": "",
+    "cerrado_por": "demo@centrolit.com.ve",
+    "cerrado_en": "2025-09-30T12:00:00.000Z",
+    "registro_json": "{\"origenOferta\":\"DEMO-2025-0042\",\"plantaSugerida\":\"P\",\"cliente\":\"Agroindustrial Demo, C.A.\",\"rifCliente\":\"J-00000000-0\",\"telefonoContacto\":\"0414 000 0000\",\"correoContacto\":\"contacto@ejemplo.com\",\"direccionFiscal\":\"Av. Ejemplo, Valencia\",\"direccionObra\":\"Zona Industrial Ejemplo\",\"ciudadObra\":\"Valencia\",\"tipoObra\":\"Nave industrial / galpón\",\"formaPago\":\"Contado, efectivo USD\",\"montoTotalUsd\":12750,\"incluyeMontaje\":\"Sí\",\"incluyeFlete\":\"No\",\"resumenMaterial\":\"Maxipanel\",\"comentarios\":\"\",\"registradoPor\":\"demo@centrolit.com.ve\",\"lineas\":[{\"tipo\":\"material\",\"producto\":\"Maxipanel\",\"codigo\":\"\",\"descripcion\":\"Maxipanel\",\"cantidad\":120,\"unidad\":\"ml\"}]}",
+    "detalle_1": "<div class=\"doc-head\"><div class=\"doc-head-logo\"><img alt=\"Centrolit\"><div class=\"doc-head-info\">[Ejemplo] Grupo Centrolit</div></div><div class=\"meta\"><div class=\"numoferta\">DEMO-2025-0042</div><div>15/09/2025</div></div></div><div class=\"doc-title\">Propuesta Técnico-Comercial</div><div class=\"doc-info\"><div><span class=\"l\">Cliente</span><strong>Agroindustrial Demo, C.A.</strong></div><div><span class=\"l\">Ubicación</span>Valencia</div></div><div class=\"doc-comentarios\">[Ejemplo] A continuación presentamos la propuesta para el suministro e instalación del sistema de cubierta.</div><table class=\"items\"><thead><tr><th>Descripción</th><th class=\"r\">Cantidad</th><th class=\"r\">Precio unit.</th><th class=\"r\">Importe (US$)</th></tr></thead><tbody><tr><td>Maxipanel</td><td class=\"r\">150,00 ml</td><td class=\"r\">US$ 32,30</td><td class=\"r\">US$ 4.845,00</td></tr><tr><td>Montaje</td><td class=\"r\">157,50 m²</td><td class=\"r\">US$ 8,00</td><td class=\"r\">US$ 1.256,00</td></tr></tbody></table><div class=\"totals\"><div class=\"r\"><span>Subtotal</span><span>US$ 6.105,00</span></div><div class=\"r\"><span>IVA 16%</span><span>US$ 976,80</span></div><div class=\"r total\"><span>TOTAL</span><span>US$ 7.081,80</span></div></div><div class=\"notes\"><strong>Notas:</strong><br>1. [Ejemplo] Validez de la oferta: 7 días.<br>2. [Ejemplo] Forma de pago: contado.</div>",
+    "detalle_2": "",
+    "detalle_3": ""
   }
 ]

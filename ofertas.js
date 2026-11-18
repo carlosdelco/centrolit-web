@@ -6,7 +6,7 @@
 
 const Ofertas = (() => {
   let root, lista = [], resultado = null;
-  let filtro = 'pendiente', q = '', selId = null;
+  let filtro = 'pendiente', q = '', selId = null, anio = 'todos';
   let paso = null; // null | 'ganada' | 'perdida' — confirmación en curso en el panel
   let ocupado = false;
   let opts = {};
@@ -66,9 +66,14 @@ const Ofertas = (() => {
   }
 
   // ---------- Lista ----------
+  // El año es el de ENVÍO de la oferta (columna fecha, ISO). Fechas ilegibles quedan como "s/f".
+  const anioDe = (o) => (/^[0-9]{4}/.test(String(o.fecha || '')) ? String(o.fecha).slice(0, 4) : 's/f');
+  const delAnio = () => (anio === 'todos' ? lista : lista.filter((o) => anioDe(o) === anio));
+  const aniosDisponibles = () => [...new Set(lista.map(anioDe))].sort().reverse();
+
   function visibles() {
     const t = q.trim().toLowerCase();
-    return lista.filter((o) => (filtro === 'todas' || o.estado === filtro) && (!t || [o.id, o.cliente, o.resumen, o.vendedor].some((v) => String(v || '').toLowerCase().includes(t))));
+    return delAnio().filter((o) => (filtro === 'todas' || o.estado === filtro) && (!t || [o.id, o.cliente, o.resumen, o.vendedor].some((v) => String(v || '').toLowerCase().includes(t))));
   }
 
   function pintarTabla() {
@@ -86,9 +91,27 @@ const Ofertas = (() => {
       : `<div class="empty-state" style="margin:30px auto"><b>${lista.length ? 'Sin ofertas con ese filtro' : 'Todavía no hay ofertas'}</b><p>${lista.length ? 'Prueba con otro estado o borra la búsqueda.' : 'Cuando envíes una oferta desde el Cotizador (botón "Enviar a Ofertas") aparecerá aquí.'}</p></div>`;
   }
 
+  // Tabla por año (todas las ofertas, sin importar el año elegido): enviadas, estado, monto ganado y
+  // tasa de éxito. Pulsar una fila elige ese año.
+  function tablaPorAnio() {
+    const anios = aniosDisponibles();
+    if (anios.length < 2 && anio === 'todos') return '';
+    const fila = (a) => {
+      const os = lista.filter((o) => anioDe(o) === a);
+      const g = os.filter((o) => o.estado === 'ganada'), p = os.filter((o) => o.estado === 'perdida'), pe = os.filter((o) => o.estado === 'pendiente');
+      const suma = (arr) => arr.reduce((s, o) => s + (o.montoUsd || 0), 0);
+      const cerr = g.length + p.length;
+      return `<tr data-anio="${esc(a)}" class="${a === anio ? 'sel' : ''}"><td><strong>${esc(a)}</strong></td><td class="r">${os.length}</td><td class="r">${pe.length}</td><td class="r">${g.length}</td><td class="r">${p.length}</td><td class="r">${esc(usd(suma(g)))}</td><td class="r">${cerr ? Math.round((g.length / cerr) * 100) + '%' : '—'}</td></tr>`;
+    };
+    return `<details class="ofe-anios" ${anios.length > 1 ? 'open' : ''}><summary>Resumen por año</summary>
+      <table class="tabla-ped ped-tabla ofe-tabla"><thead><tr><th>Año</th><th class="r">Enviadas</th><th class="r">Pend.</th><th class="r">Ganadas</th><th class="r">Perdidas</th><th class="r">Monto ganado</th><th class="r">% éxito</th></tr></thead>
+      <tbody>${anios.map(fila).join('')}</tbody></table></details>`;
+  }
+
   function resumenCifras() {
-    const suma = (e) => lista.filter((o) => o.estado === e).reduce((a, o) => a + (o.montoUsd || 0), 0);
-    const n = (e) => lista.filter((o) => o.estado === e).length;
+    const base = delAnio();
+    const suma = (e) => base.filter((o) => o.estado === e).reduce((a, o) => a + (o.montoUsd || 0), 0);
+    const n = (e) => base.filter((o) => o.estado === e).length;
     const cerradas = n('ganada') + n('perdida');
     const tasa = cerradas ? Math.round((n('ganada') / cerradas) * 100) + '%' : '—';
     return `<div class="stats-ped">
@@ -103,11 +126,13 @@ const Ofertas = (() => {
     root.innerHTML = `
       <div class="ped-layout ofe-layout">
         <div class="ped-lista">
-          ${resumenCifras()}
+          <div id="cifrasOfertas">${resumenCifras()}</div>
+          ${tablaPorAnio()}
           <div class="toolbar-ped">
             <div class="chips-ped">
               ${[['pendiente', 'Pendientes'], ['ganada', 'Ganadas'], ['perdida', 'Perdidas'], ['todas', 'Todas']].map(([k, t]) => `<button type="button" class="chip-ped" data-filtro="${k}" aria-pressed="${k === filtro}">${t}</button>`).join('')}
             </div>
+            <select id="anioOfertas" class="ln-in" style="width:auto" title="Año de envío de la oferta"><option value="todos" ${anio === 'todos' ? 'selected' : ''}>Todos los años</option>${aniosDisponibles().map((a) => `<option value="${esc(a)}" ${a === anio ? 'selected' : ''}>${esc(a)}</option>`).join('')}</select>
             <input class="search-ped" type="search" id="qOfertas" placeholder="Buscar número, cliente o producto" value="${esc(q)}">
           </div>
           <div class="card" style="padding:0;overflow:auto" id="tablaOfertas"></div>
@@ -207,6 +232,8 @@ const Ofertas = (() => {
   }
 
   function alClick(e) {
+    const filaAnio = e.target.closest('tr[data-anio]');
+    if (filaAnio) { anio = anio === filaAnio.dataset.anio ? 'todos' : filaAnio.dataset.anio; selId = null; paso = null; pintar(); return; }
     const chip = e.target.closest('[data-filtro]');
     if (chip) { filtro = chip.dataset.filtro; selId = null; paso = null; root.querySelectorAll('[data-filtro]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.filtro === filtro))); pintarTabla(); pintarPanel(); return; }
     const fila = e.target.closest('tr[data-id]');
@@ -242,12 +269,14 @@ const Ofertas = (() => {
     resultado = res;
     if (!res || !res.ok) { root.innerHTML = bloqueError(res || {}, true); return; }
     lista = preparar(res.data);
-    if (!mismo) { filtro = 'pendiente'; q = ''; }
+    if (!mismo) { filtro = 'pendiente'; q = ''; anio = 'todos'; }
+    if (anio !== 'todos' && !lista.some((o) => anioDe(o) === anio)) anio = 'todos';
     if (selId && !lista.some((x) => x.id === selId)) selId = null;
     paso = null;
     ocupado = false;
     pintar();
     root.onclick = alClick;
+    root.onchange = (e) => { if (e.target.id === 'anioOfertas') { anio = e.target.value; selId = null; paso = null; pintar(); } };
     root.oninput = (e) => { if (e.target.id === 'qOfertas') { q = e.target.value; pintarTabla(); } };
   }
 
@@ -256,6 +285,7 @@ const Ofertas = (() => {
     if (!root || !lista.some((x) => x.id === id)) return;
     const o = lista.find((x) => x.id === id);
     filtro = o.estado;
+    anio = 'todos';
     selId = id;
     paso = null;
     pintar();
