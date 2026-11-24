@@ -6,8 +6,10 @@
 // etapa (sin iniciar / en curso / terminado), igual que hace el motor con pedidos-service.js >
 // parseStatusPedidos() > clasificarEtapa().
 
+// Desde 2026-11: la pestaña tiene dos vistas — "Partes de producción" (los partes digitales que envía el
+// encargado de revisión, ver partes.js) y "Estado de pedidos" (este tablero, sin cambios).
 const Produccion = (() => {
-  let root, filas = [];
+  let contenedor, root, filas = [], subvista = 'partes', pedidosRes = null;
   let etapaVista = 'fabricacion'; // 'fabricacion' | 'montaje'
   let planta = 'todas';
 
@@ -71,8 +73,28 @@ const Produccion = (() => {
     </div>`;
   }
 
-  function mount(container, res) {
-    root = container;
+  // res = pedidos (para el tablero de estado); partesRes/partesOpts = partes de producción (partes.js).
+  function mount(container, res, partesRes, partesOpts) {
+    contenedor = container;
+    pedidosRes = res;
+    const nPend = partesRes && partesRes.ok ? partesRes.data.filter((x) => x.estado === 'enviado').length : 0;
+    container.innerHTML = `<div class="chips-ped prod-subtabs" role="tablist">
+        <button type="button" class="chip-ped" data-sub="partes" aria-pressed="${subvista === 'partes'}">Partes de producción${nPend ? ` <span class="badge max">${nPend} por procesar</span>` : ''}</button>
+        <button type="button" class="chip-ped" data-sub="estado" aria-pressed="${subvista === 'estado'}">Estado de pedidos (STATUS PEDIDOS)</button>
+      </div>
+      <div id="prodPartes" ${subvista === 'partes' ? '' : 'hidden'}></div>
+      <div id="prodEstado" ${subvista === 'estado' ? '' : 'hidden'}></div>`;
+    container.onclick = (e) => {
+      if (e.target.closest('[data-act="refrescar"]') && partesOpts && partesOpts.refrescar) { partesOpts.refrescar(); return; }
+      const s = e.target.closest('[data-sub]');
+      if (!s) return;
+      subvista = s.dataset.sub;
+      container.querySelectorAll('[data-sub]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.sub === subvista)));
+      container.querySelector('#prodPartes').hidden = subvista !== 'partes';
+      container.querySelector('#prodEstado').hidden = subvista !== 'estado';
+    };
+    if (typeof Partes !== 'undefined') Partes.mount(container.querySelector('#prodPartes'), partesRes, partesOpts || {});
+    root = container.querySelector('#prodEstado');
     if (!res.ok) { root.innerHTML = bloqueError(res, true); return; }
     filas = res.data.real || [];
     pintar();
@@ -91,5 +113,14 @@ const Produccion = (() => {
     };
   }
 
-  return { mount };
+  // Abre la vista de partes (p. ej. desde un pedido: "Registrar parte de producción").
+  function mostrarPartes() {
+    subvista = 'partes';
+    if (!contenedor) return;
+    contenedor.querySelectorAll('[data-sub]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.sub === 'partes')));
+    contenedor.querySelector('#prodPartes').hidden = false;
+    contenedor.querySelector('#prodEstado').hidden = true;
+  }
+
+  return { mount, mostrarPartes };
 })();

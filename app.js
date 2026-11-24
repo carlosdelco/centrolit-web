@@ -36,7 +36,7 @@ const WebApp = (() => {
   let vista = 'cotizador';
   let cfg = { demo: false, preciosFileId: '', kpisFileId: '', pedidosFileId: '', statusPedidosFileId: '', personalFileId: '' };
   let empresa = {};
-  let acceso = null, precios = null, kpis = null, pedidos = null, ofertas = null, personal = null;
+  let acceso = null, precios = null, kpis = null, pedidos = null, ofertas = null, partes = null, personal = null;
 
   function cfgLoad() {
     // Por defecto del build (config/app.config.json, vía scripts/build-web.js): así nadie tiene
@@ -102,11 +102,12 @@ const WebApp = (() => {
   }
 
   async function cargarTodo(refresh) {
-    [precios, acceso, pedidos, ofertas, personal] = await Promise.all([
+    [precios, acceso, pedidos, ofertas, partes, personal] = await Promise.all([
       WebData.getPrecios({ fileId: cfg.preciosFileId, demoMode: cfg.demo, refresh }),
       WebData.accesoKpis(cfg.kpisFileId, cfg.demo),
       WebData.getPedidos(cfg.pedidosFileId, cfg.statusPedidosFileId, 'Pedidos', cfg.demo),
       WebData.getOfertas(cfg.pedidosFileId, cfg.demo),
+      WebData.getPartes(cfg.pedidosFileId, cfg.demo),
       WebData.getPersonal({ fileId: cfg.personalFileId, demoMode: cfg.demo, refresh }),
     ]);
     kpis = acceso.visible ? await WebData.getKpis({ fileId: cfg.kpisFileId, demoMode: cfg.demo, refresh }) : null;
@@ -169,8 +170,36 @@ const WebApp = (() => {
       imprimir: async () => { window.print(); },
       logoSrc: 'assets/logo.png',
       empresa,
+      get partes() { return partes && partes.ok ? partes.data : []; },
+      nuevoParte,
+      verParte,
     };
   }
+
+  // Partes de producción (pestaña Producción). Los productos son los de paneles (planta de Paneles);
+  // la lista de pedidos sirve para autocompletar cliente, producto y ficha técnica.
+  function opcionesPartes() {
+    const d = precios && precios.ok ? precios.data : null;
+    const prods = d ? d.productos : [];
+    const paneles = prods.filter((p) => p.categoria === 'Paneles y Láminas');
+    return {
+      recetas: d ? d.recetas || [] : [],
+      productos: (paneles.length ? paneles : prods).map((p) => p.producto),
+      demo: !!cfg.demo,
+      pedidos: typeof Pedidos.paraPartes === 'function' ? Pedidos.paraPartes() : [],
+      guardar: (parte, numero) => WebData.guardarParte(parte, numero, cfg.pedidosFileId, cfg.demo),
+      estado: (numero, est) => WebData.estadoParte(numero, est, cfg.pedidosFileId, cfg.demo),
+      recargar: async () => { partes = await WebData.getPartes(cfg.pedidosFileId, cfg.demo); return partes; },
+      refrescar: () => refrescar(),
+      imprimir: async () => { window.print(); },
+      logoSrc: 'assets/logo.png',
+      empresa: empresa,
+    };
+  }
+
+  function nuevoParte(prefill) { mostrar('produccion'); Produccion.mostrarPartes(); Partes.nuevo(prefill); }
+  function verParte(numero) { mostrar('produccion'); Produccion.mostrarPartes(); Partes.ver(numero); }
+
 
   // Opciones del módulo Ofertas (mismo comportamiento que en escritorio, vía Sheets API directo). Al ganar
   // una oferta se registra un pedido, así que se recarga la lista de Pedidos y lo que se deriva de ella.
@@ -187,7 +216,7 @@ const WebApp = (() => {
         pedidos = await WebData.getPedidos(cfg.pedidosFileId, cfg.statusPedidosFileId, 'Pedidos', cfg.demo);
         Pedidos.mount(views.pedidos, pedidos, opcionesPedidos());
         Clientes.mount(views.clientes, pedidos);
-        Produccion.mount(views.produccion, pedidos);
+        Produccion.mount(views.produccion, pedidos, partes, opcionesPartes());
       },
       irAPedidos: () => mostrar('pedidos'),
     };
@@ -208,7 +237,7 @@ const WebApp = (() => {
     Ofertas.mount(views.ofertas, ofertas, opcionesOfertas());
     Pedidos.mount(views.pedidos, pedidos, opcionesPedidos());
     Clientes.mount(views.clientes, pedidos);
-    Produccion.mount(views.produccion, pedidos);
+    Produccion.mount(views.produccion, pedidos, partes, opcionesPartes());
     Personal.mount(views.personal, personal);
     if (acceso.visible && kpis) Dashboard.mount(views.dashboard, kpis);
     montarAjustes();
@@ -308,7 +337,7 @@ const WebApp = (() => {
       ofertas: ['Ofertas', 'Ofertas enviadas desde el Cotizador: márcalas como ganadas (pasan a Pedidos) o perdidas.', ofertas && estadoDatos(ofertas, 'Ofertas')],
       pedidos: ['Pedidos', 'Pedidos reales (STATUS PEDIDOS.xlsx) y ofertas pasadas a pedido desde el Cotizador.', pedidos && estadoDatos(pedidos, 'Pedidos')],
       clientes: ['Clientes', 'Derivado de los pedidos reales, con datos de contacto cuando vienen del Cotizador.', pedidos && estadoDatos(pedidos, 'Pedidos')],
-      produccion: ['Producción', 'Tablero de estado de fabricación y montaje.', pedidos && estadoDatos(pedidos, 'Pedidos')],
+      produccion: ['Producción', 'Partes de producción enviados a administración y estado de fabricación/montaje.', partes && estadoDatos(partes, 'Partes')],
       personal: ['Personal', 'Nombre y cargo del equipo de planta e instalación.', personal && estadoDatos(personal, 'Personal')],
       dashboard: ['Cuadro de Mando', 'Última semana cargada por área — solo Dirección.', kpis && estadoDatos(kpis, 'KPIs')],
       ajustes: ['Ajustes', 'Cuenta de Google y ficheros de datos.', ''],

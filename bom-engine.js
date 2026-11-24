@@ -115,7 +115,7 @@
     const despiece = [];
 
     for (const l of lineas) {
-      if (l.tipo === 'observacion') continue;
+      if (l.tipo === 'observacion' || l.tipo === 'ficha') continue;
       const cant = n(l.cantidad);
       if (!(cant > 0)) continue;
 

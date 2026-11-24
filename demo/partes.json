@@ -1,0 +1,37 @@
+[
+  {
+    "hojaPapel": "000101", "pedido": "P999", "fecha": "2026-11-05", "cliente": "Constructora Ejemplo, C.A.", "producto": "Superpared SP50",
+    "proveedorAcero": "Acesco", "calibre": "0,45", "colorSup": "Blanco", "colorInf": "Blanco",
+    "bobinas": [
+      { "numero": "D-1001", "ancho": 1200, "pesoInicial": 2900, "pesoFinal": 2360 },
+      { "numero": "D-2002", "ancho": 1100, "pesoInicial": 2700, "pesoFinal": 2215 }
+    ],
+    "laminas": [ { "cantidad": 12, "largo": 4.5 }, { "cantidad": 10, "largo": 3.2 } ],
+    "segunda": [ { "cantidad": 1, "largo": 2.1 } ],
+    "anime": [ { "cantidad": 30, "largo": 3 } ],
+    "poliolKg": 17.5, "isocianatoKg": 17.5,
+    "tornillos": [ { "tipo": "14 x 2 1/2", "cantidad": 120 } ],
+    "capelotes": [], "cumbreras": [],
+    "flashings": [ { "descripcion": "[Ejemplo] Cumbrera lisa", "cantidad": 6, "largo": 2.4, "ancho": 600 } ],
+    "scrap": [ { "tipo": "Arranque de máquina", "ancho": 1200, "kg": 18, "metros": 2.2 }, { "tipo": "Producción", "ancho": 1100, "kg": 9, "metros": 1.1 } ],
+    "supervisor": "[Ejemplo] Supervisor", "operador": "[Ejemplo] Operador", "revisadoPor": "[Ejemplo] Revisor",
+    "observaciones": "[Ejemplo] Parte ficticio de demostración."
+  },
+  {
+    "hojaPapel": "000102", "pedido": "P101", "fecha": "2026-11-08", "cliente": "Inversiones Demo 2000", "producto": "Maxipanel",
+    "proveedorAcero": "Acesco", "calibre": "0,45", "colorSup": "Blanco", "colorInf": "Gris",
+    "bobinas": [
+      { "numero": "D-1003", "ancho": 1200, "pesoInicial": 3000, "pesoFinal": 2610 },
+      { "numero": "D-2004", "ancho": 1100, "pesoInicial": 2800, "pesoFinal": 2445 }
+    ],
+    "laminas": [ { "cantidad": 11, "largo": 6.5 } ],
+    "segunda": [], "anime": [ { "cantidad": 25, "largo": 3 } ],
+    "poliolKg": 15, "isocianatoKg": 15,
+    "tornillos": [ { "tipo": "14 x 3 con arandela", "cantidad": 150 } ],
+    "capelotes": [ { "descripcion": "", "cantidad": 150 } ], "cumbreras": [], "flashings": [],
+    "scrap": [ { "tipo": "Arranque de máquina", "ancho": 1200, "kg": 15, "metros": 1.8 } ],
+    "supervisor": "[Ejemplo] Supervisor", "operador": "[Ejemplo] Operador", "revisadoPor": "[Ejemplo] Revisor",
+    "observaciones": "",
+    "_estado": "procesado"
+  }
+]

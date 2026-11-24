@@ -24,6 +24,37 @@ const Pedidos = (() => {
   const UNIDADES = ['ml', 'm2', 'lámina', 'pieza', 'unid', 'kg'];
   const UNIDAD_POR_TIPO = { material: 'ml', lamina: 'lámina', fijacion: 'unid', flashing: 'pieza', partida: 'unid' };
 
+  const FICHA = [['colorSup', 'Color superior (RAL)', 'p. ej. Blanco'], ['colorInf', 'Color inferior (RAL)', 'p. ej. Blanco'], ['calibre', 'Calibre (mm)', 'p. ej. 0,45'], ['proveedorAcero', 'Proveedor del acero', 'Acesco, Corpacero…']];
+  const fichaDe = (lineas) => Object.fromEntries((lineas || []).filter((l) => l.tipo === 'ficha').map((l) => [l.codigo, l.descripcion]));
+
+  // Partes de producción enviados para este pedido (por código real o por número de oferta).
+  function partesDelPedido() {
+    if (!edit) return [];
+    const claves = new Set([edit.f.pedido, edit.codigo, edit.f.ref, edit.f.alt].filter(Boolean).map((x) => String(x).trim().toUpperCase()));
+    return (opts.partes || []).filter((x) => x.estado !== 'anulado' && claves.has(String(x.parte.pedido || '').trim().toUpperCase()));
+  }
+
+  function mlDelPedido() {
+    const mat = edit.lineas.filter((l) => l.tipo === 'material' && l.unidad === 'ml');
+    const lam = edit.lineas.filter((l) => l.tipo === 'lamina');
+    if (lam.length) return lam.reduce((s, l) => s + (Number(l.cantidad) || 0) * (Number(l.largo_m) || 0), 0);
+    return mat.reduce((s, l) => s + (Number(l.cantidad) || 0), 0);
+  }
+
+  function htmlPartesPedido() {
+    if (!opts.nuevoParte) return '';
+    const ps = partesDelPedido();
+    const hecho = ps.reduce((s, x) => s + (x.totales.ml || 0), 0);
+    const total = mlDelPedido();
+    const avance = total > 0 ? Math.round((hecho / total) * 100) : null;
+    return `<h3 class="ped-h3">Partes de producción</h3>
+      ${ps.length ? `<div class="hint" style="margin:0 0 6px">Producido: <b>${fmtN(hecho)} ml</b>${total > 0 ? ` de ${fmtN(total)} ml previstos (${avance}%)` : ''}</div>
+      <div class="tablewrap"><table class="tabla-ped"><thead><tr><th>N°</th><th>Fecha</th><th class="r">Metros</th><th class="r">Kg acero</th><th>Estado</th></tr></thead>
+        <tbody>${ps.map((x) => `<tr data-parte="${esc(x.numero)}" style="cursor:pointer"><td class="mono">${esc(x.numero)}</td><td>${esc(fmtFecha(x.parte.fecha))}</td><td class="r">${fmtN(x.totales.ml)}</td><td class="r">${fmtN(x.totales.kgAcero)}</td><td>${x.estado === 'procesado' ? '<span class="pill ok">procesado</span>' : '<span class="pill amber">enviado</span>'}</td></tr>`).join('')}</tbody></table></div>`
+      : '<div class="hint" style="margin:0 0 6px">Todavía no hay partes de producción para este pedido.</div>'}
+      <button type="button" class="btn secondary small" data-ln="nuevo-parte">＋ Registrar parte de producción</button>`;
+  }
+
   function agrupar(lineas) {
     const m = new Map();
     for (const l of lineas || []) {
@@ -150,6 +181,12 @@ const Pedidos = (() => {
         ${editable ? campo('Ciudad de la obra', r.ciudad_obra) + campo('Dirección de entrega', r.direccion_obra) + campo('Tipo de obra', r.tipo_obra) : ''}
         ${f.origen === 'real' ? campo('Fabricación', f.statusFabricacion) + campo('Montaje', f.statusMontaje) + campo('Fecha programada', f.fechaProgramada) + campo('Situación', f.situacion) : ''}
       </div>
+      <h3 class="ped-h3">Ficha técnica</h3>
+      <div class="ped-meta ped-ficha">
+        ${FICHA.map(([k, l, ph]) => `<div><label>${esc(l)}</label><input class="ln-in" data-fi="${k}" ${k === 'proveedorAcero' ? 'list="listaProvPed"' : ''} value="${esc(edit.ficha[k] || '')}" placeholder="${esc(ph)}" maxlength="60"></div>`).join('')}
+      </div>
+      <datalist id="listaProvPed">${(typeof PartesCore !== 'undefined' ? PartesCore.PROVEEDORES_ACERO : []).map((x) => `<option value="${esc(x)}">`).join('')}</datalist>
+      <div class="hint" style="margin:4px 0 0">Sale en la orden de producción y se copia al parte de producción. Se puede decidir al cotizar o al pasar a producción.</div>
       ${f.fusionado ? '<div class="hint" style="margin:6px 0 0">Este pedido ya tiene su código en STATUS PEDIDOS.xlsx: se muestran juntos el estado del fichero y los materiales del Cotizador.</div>' : ''}
       ${f.origen === 'real' && !f._raw ? '<div class="hint" style="margin:6px 0 0">Pedido de STATUS PEDIDOS.xlsx: el código y la planta vienen de ese fichero (la app solo lo lee).</div>' : ''}
 
@@ -170,6 +207,8 @@ const Pedidos = (() => {
 
       <h3 class="ped-h3">Observaciones para producción</h3>
       <textarea class="ln-in" id="pedObs" rows="3" maxlength="2000" placeholder="Color, calibre, fecha de entrega, cómo despachar… (sale en el PDF)">${esc(edit.obs)}</textarea>
+
+      ${htmlPartesPedido()}
 
       <div class="btnrow" style="margin-top:12px">
         <span style="flex:1"></span>
@@ -199,7 +238,7 @@ const Pedidos = (() => {
           <td class="hint" style="font-size:12px">${esc(nombres(m))}</td>
         </tr>`).join('')}</tbody>
       </table>` : '<div class="hint">Todavía no se puede calcular ningún material: faltan recetas con cantidad física para los productos de este pedido.</div>'}
-      ${hayPorConfirmar ? '<div class="hint" style="margin-top:6px">⚠ ORIENTATIVO: recetas por confirmar (datos de análisis de costos de 2019–2021). No usar para comprar hasta que producción las valide.</div>' : ''}
+      ${hayPorConfirmar ? '<div class="hint" style="margin-top:6px">⚠ ORIENTATIVO: recetas por confirmar. No usar para comprar hasta que producción las valide (Luis Gámez en Centrolam; Cesar o Carlos López en Paneles).</div>' : ''}
       ${r.sinReceta.length ? `<div class="hint" style="margin-top:6px"><strong>Sin receta:</strong> ${r.sinReceta.map(esc).join(', ')} — no se calculan sus materiales.</div>` : ''}
       ${r.pendientes.length ? `<div class="hint" style="margin-top:6px"><strong>Pendiente de receta:</strong> ${r.pendientes.map((p) => `${esc(p.material)} de ${esc(p.producto)} (${esc(String(p.motivo).replace(/.$/, ''))})`).join('; ')}</div>` : ''}`;
   }
@@ -230,7 +269,8 @@ const Pedidos = (() => {
       codigo: r ? PedidosUtil.normCodigo(r.codigo_pedido) : f.pedido || '',
       planta: f.planta || 'V',
       orig: { codigo: r ? PedidosUtil.normCodigo(r.codigo_pedido) : '', planta: f.planta || 'V' },
-      lineas: todas.filter((l) => l.tipo !== 'observacion'),
+      lineas: todas.filter((l) => l.tipo !== 'observacion' && l.tipo !== 'ficha'),
+      ficha: fichaDe(todas),
       obs: obs ? obs.descripcion : '',
       sucioMeta: false,
       sucioLineas: false,
@@ -267,6 +307,7 @@ const Pedidos = (() => {
       if (edit.sucioLineas) {
         const aGuardar = [...edit.lineas];
         if (edit.obs.trim()) aGuardar.push({ tipo: 'observacion', descripcion: edit.obs, cantidad: 0 });
+        for (const [k] of FICHA) if (String(edit.ficha[k] || '').trim()) aGuardar.push({ tipo: 'ficha', codigo: k, descripcion: String(edit.ficha[k]).trim(), cantidad: 0 });
         const res = await opts.guardarLineas(edit.ref, aGuardar);
         lineasPorRef.set(edit.ref, (res && res.lineas) || []);
         edit.sucioLineas = false;
@@ -305,6 +346,10 @@ const Pedidos = (() => {
         ${dato('Ciudad de la obra', r.ciudad_obra)}${dato('Dirección de entrega', r.direccion_obra)}${dato('Tipo de obra', r.tipo_obra)}
         ${f.origen === 'real' ? dato('Fabricación', f.statusFabricacion) + dato('Montaje', f.statusMontaje) + dato('Fecha programada', f.fechaProgramada) : ''}
       </div>
+      <div class="ped-doc-info ped-doc-ficha">
+        <div><span>Color superior:</span> ${esc(edit.ficha.colorSup || '__________')}</div><div><span>Color inferior:</span> ${esc(edit.ficha.colorInf || '__________')}</div>
+        <div><span>Calibre:</span> ${esc(edit.ficha.calibre || '______')}</div><div><span>Material (proveedor):</span> ${esc(edit.ficha.proveedorAcero || '__________')}</div>
+      </div>
       <h3>Despiece de láminas</h3>
       ${laminas.length ? `<table><thead><tr><th>Sección / techo</th><th>Producto</th><th class="r">Láminas</th><th class="r">Largo (m)</th><th class="r">Metros lineales</th></tr></thead>
         <tbody>${laminas.map((l) => `<tr><td>${esc(l.descripcion || '—')}</td><td>${esc(l.producto)}</td><td class="r">${fmtN(l.cantidad)}</td><td class="r">${fmtN(l.largo_m)}</td><td class="r">${fmtN(l.cantidad * (Number(l.largo_m) || 0))}</td></tr>`).join('')}</tbody></table>`
@@ -316,7 +361,12 @@ const Pedidos = (() => {
       <h3>Requerimiento de materia prima <span class="nota">(orientativo)</span></h3>
       <div class="ped-doc-bom">${htmlRequerimiento(R)}</div>
       ${edit.obs.trim() ? `<h3>Observaciones para producción</h3><p class="obs">${esc(edit.obs).replace(/\n/g, '<br>')}</p>` : ''}
-      <div class="ped-doc-firmas"><div>Elaborado por</div><div>Recibido por producción</div></div>
+      <h3>Para llenar en planta</h3>
+      <table class="ped-doc-llenar"><thead><tr><th>Bobina superior (1200) — código</th><th class="r">Peso (kg)</th><th>Bobina inferior (1000–1100) — código</th><th class="r">Peso (kg)</th></tr></thead>
+        <tbody><tr><td></td><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td><td></td></tr></tbody></table>
+      <table class="ped-doc-llenar"><thead><tr><th>Scrap arranque de máquina (kg / ml)</th><th>Scrap por producción (kg / ml)</th><th>Láminas de anime usadas</th></tr></thead>
+        <tbody><tr><td></td><td></td><td></td></tr></tbody></table>
+      <div class="ped-doc-firmas ped-doc-firmas-3"><div>Elaborado por</div><div>Operador de máquina</div><div>Revisado por</div></div>
       <div class="ped-doc-pie">${esc(emp.nombre || 'Grupo Centrolit')}${emp.rif ? ' · RIF ' + esc(emp.rif) : ''}${emp.web ? ' · ' + esc(emp.web) : ''} — Documento interno, sin precios.</div>
     </div>`;
   }
@@ -373,9 +423,15 @@ const Pedidos = (() => {
           guardar();
         } else if (act === 'pdf') {
           imprimir();
+        } else if (act === 'nuevo-parte') {
+          const mat = edit.lineas.find((l) => (l.tipo === 'material' || l.tipo === 'lamina') && l.producto);
+          const codigo = edit.f._raw ? PedidosUtil.normCodigo(edit.codigo) : edit.f.pedido;
+          opts.nuevoParte({ pedido: codigo || edit.ref, cliente: edit.f.cliente, producto: (mat && mat.producto) || '', ...edit.ficha });
         }
         return;
       }
+      const tp = e.target.closest('tr[data-parte]');
+      if (tp && opts.verParte) { opts.verParte(tp.dataset.parte); return; }
       const tr = e.target.closest('tr[data-ref]');
       if (tr) {
         const f = filas.find((x) => x.ref === tr.dataset.ref);
@@ -391,6 +447,7 @@ const Pedidos = (() => {
       if (t.id === 'pedCodigo') { edit.codigo = t.value.toUpperCase(); marcarSucio('meta'); return; }
       if (t.id === 'pedPlanta') { edit.planta = t.value; marcarSucio('meta'); return; }
       if (t.id === 'pedObs') { edit.obs = t.value; marcarSucio('lineas'); return; }
+      if (t.dataset && t.dataset.fi) { edit.ficha[t.dataset.fi] = t.value; marcarSucio('lineas'); return; }
       const inp = t.closest('.ln-in[data-i]');
       if (!inp) return;
       const l = edit.lineas[+inp.dataset.i];
@@ -403,12 +460,22 @@ const Pedidos = (() => {
     };
     root.oninput = (e) => {
       if (e.target.id === 'qPedidos') { q = e.target.value; pintarTabla(); return; }
-      if (e.target.matches('input.ln-in, textarea.ln-in')) alEditar(e);
+      if (e.target.matches('input.ln-in, textarea.ln-in, input[data-fi]')) alEditar(e);
     };
     root.onchange = (e) => {
       if (e.target.matches('select.ln-in')) alEditar(e);
     };
   }
 
-  return { mount };
+  // Lista de pedidos para el parte de producción (autocompletar pedido → cliente, producto, ficha).
+  function paraPartes() {
+    return filas.map((f) => {
+      const ls = lineasPorRef.get(f.ref) || lineasPorRef.get(f.alt) || [];
+      const mat = ls.find((l) => (l.tipo === 'material' || l.tipo === 'lamina') && l.producto);
+      const codigo = f.conCodigo ? f.pedido : f.ref;
+      return { codigo, cliente: f.cliente || '', producto: (mat && mat.producto) || '', ...fichaDe(ls) };
+    }).filter((x) => x.codigo);
+  }
+
+  return { mount, paraPartes };
 })();

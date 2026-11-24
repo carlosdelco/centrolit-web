@@ -351,3 +351,34 @@ table.ofe-tabla th.r,table.ofe-tabla td.r{text-align:right;white-space:nowrap;}
 .ofe-anios table{margin-top:8px;}
 .ofe-anios tr[data-anio]{cursor:pointer;} .ofe-anios tr[data-anio]:hover td{background:var(--surface-2);}
 .ofe-anios tr.sel td{background:var(--surface-2);font-weight:bold;}
+
+/* ---------- Partes de producción (Producción) ---------- */
+.prod-subtabs{margin-bottom:14px;}
+.parte-card{padding:18px 20px;}
+.parte-cab{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px 14px;}
+.parte-cab label,.parte-bloque label{display:block;font-size:12px;color:var(--muted);margin-bottom:3px;}
+.parte-cab .ln-in{width:100%;box-sizing:border-box;}
+.parte-cab-2{grid-template-columns:repeat(2,minmax(140px,220px));}
+.parte-bloque{margin-top:14px;}
+.parte-bloque textarea{width:100%;box-sizing:border-box;resize:vertical;}
+.parte-col2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0 18px;}
+table.parte-tabla{width:auto;min-width:320px;}
+table.parte-tabla td{padding:4px 6px;}
+table.parte-tabla th.r,table.parte-tabla td.r{text-align:right;}
+table.parte-tabla .ln-in{width:100%;min-width:90px;box-sizing:border-box;}
+table.parte-tabla .ln-in.ln-num{width:110px;}
+table.parte-tabla tfoot td{border-top:2px solid var(--border);}
+table.partes-tabla td.r,table.partes-tabla th.r{text-align:right;white-space:nowrap;}
+.parte-totales{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;}
+.parte-totales>div{background:var(--surface-2);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:2px;}
+.parte-totales span{font-size:11.5px;color:var(--muted);}
+.parte-totales b{font-size:17px;color:var(--navy);font-family:var(--serif);}
+.parte-totales small{font-size:11px;color:var(--muted);}
+.ped-ficha{grid-template-columns:1fr 1fr;}
+.ped-ficha .ln-in{width:100%;box-sizing:border-box;}
+.ped-doc-firmas.ped-doc-firmas-3{grid-template-columns:1fr 1fr 1fr;gap:28px;}
+.ped-doc-ficha{border:1px solid #ccd3d8;border-radius:4px;padding:6px 10px;}
+.ped-doc table.ped-doc-llenar{margin-bottom:8px;}
+.ped-doc table.ped-doc-llenar td{height:22px;border:1px solid #ccd3d8;}
+.ped-doc table.ped-doc-llenar th{border:1px solid #ccd3d8;}
+table.parte-tabla td{vertical-align:middle;}

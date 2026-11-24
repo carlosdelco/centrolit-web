@@ -192,7 +192,7 @@ const WebData = (() => {
     await sheetsReq(`${SHEETS_BASE}/${id}/values/${encodeURIComponent(tabName + '!A1')}?valueInputOption=RAW`, { method: 'PUT', body: { values: [headers] } }, token);
   }
 
-  const TIPOS_LINEA = ['material', 'lamina', 'fijacion', 'flashing', 'partida', 'observacion'];
+  const TIPOS_LINEA = ['material', 'lamina', 'fijacion', 'flashing', 'partida', 'observacion', 'ficha'];
   const limpiar = (s, max = 300) => String(s ?? '').slice(0, max);
   function sanearLineas(lineas) {
     if (!Array.isArray(lineas)) throw new Error('Líneas inválidas.');
@@ -215,6 +215,9 @@ const WebData = (() => {
       // Una observación para producción no tiene cantidad (solo texto, una por pedido); el resto de
       // las líneas necesita cantidad > 0 y algo que las identifique.
       .filter((l) => {
+        // Ficha técnica del pedido (color superior/inferior, calibre, proveedor del acero): una línea
+        // por dato, clave en "codigo" y valor en "descripcion", sin cantidad.
+        if (l.tipo === 'ficha') return ['colorSup', 'colorInf', 'calibre', 'proveedorAcero'].includes(l.codigo) && !!l.descripcion.trim();
         if (l.tipo === 'observacion') {
           if (hayObs || !l.descripcion.trim()) return false;
           hayObs = true;
@@ -414,6 +417,61 @@ const WebData = (() => {
   async function ofertaPerdida(id, motivo, nota, fileId, demoMode) { return (await ofertasCore(fileId, demoMode)).perdida(id, { motivo, nota }, quienOfertas()); }
   async function ofertaReabrir(id, fileId, demoMode) { return (await ofertasCore(fileId, demoMode)).reabrir(id); }
 
+  // ---------- Partes de producción (pestaña "Partes_Produccion" del Sheet de Pedidos) ----------
+  // Misma lógica que escritorio (src/shared/partes-core.js); aquí solo cambia el acceso a Sheets.
+  const TAB_PARTES = 'Partes_Produccion';
+  let demoPartesRaw = null;
+  async function ioPartes(fileId, demoMode) {
+    if (demoMode) {
+      if (!demoPartesRaw) {
+        const base = await fetch('demo/partes.json').then((r) => r.json());
+        demoPartesRaw = [PartesCore.COLUMNAS, ...base.map((p, i) => PartesCore.filaDesdeParte(p, {
+          numero: String(i + 1).padStart(6, '0'), estado: p._estado || 'enviado', enviadoPor: 'demo@centrolit.com.ve', enviadoEn: '2026-11-10T12:00:00.000Z',
+          procesadoPor: p._estado === 'procesado' ? 'demo@centrolit.com.ve' : '', procesadoEn: p._estado === 'procesado' ? '2026-11-11T12:00:00.000Z' : '',
+        }))];
+      }
+      return {
+        leer: async () => demoPartesRaw,
+        asegurar: async () => {},
+        agregar: async (f) => { demoPartesRaw.push(f); },
+        escribirFila: async (n, f) => { demoPartesRaw[n - 1] = f; },
+      };
+    }
+    if (!fileId) throw new Error('Falta configurar el fichero de Pedidos (Ajustes).');
+    const token = await WebAuth.getAccessToken();
+    const id = encodeURIComponent(fileId);
+    const ultima = letraColumna(PartesCore.COLUMNAS.length - 1);
+    return {
+      leer: async () => {
+        try { return (await readTabs(fileId, [TAB_PARTES], token))[TAB_PARTES] || []; } catch (e) { if (e.status === 400) return []; throw e; }
+      },
+      asegurar: () => ensureTab(fileId, TAB_PARTES, PartesCore.COLUMNAS, token),
+      agregar: (f) => sheetsReq(`${SHEETS_BASE}/${id}/values/${encodeURIComponent(TAB_PARTES)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, { method: 'POST', body: { values: [f] } }, token),
+      escribirFila: (n, f) => sheetsReq(`${SHEETS_BASE}/${id}/values:batchUpdate`, { method: 'POST', body: { valueInputOption: 'RAW', data: [{ range: `${TAB_PARTES}!A${n}:${ultima}${n}`, values: [f] }] } }, token),
+    };
+  }
+  const partesCore = async (fileId, demoMode) => PartesCore.crearPartes(await ioPartes(fileId, demoMode));
+  async function guardarParte(parte, numero, fileId, demoMode) {
+    const r = await (await partesCore(fileId, demoMode)).guardar(parte, WebAuth.current()?.email || '', numero);
+    return demoMode ? { ...r, demo: true } : r;
+  }
+  async function estadoParte(numero, estado, fileId, demoMode) {
+    const r = await (await partesCore(fileId, demoMode)).cambiarEstado(numero, estado, WebAuth.current()?.email || '');
+    return demoMode ? { ...r, demo: true } : r;
+  }
+  async function getPartes(fileId, demoMode) {
+    if (!demoMode && !fileId) return { ok: false, code: 'sin_fichero', error: 'Falta configurar el fichero de Pedidos (Ajustes).' };
+    if (!demoMode && !WebAuth.current()) return { ok: false, code: 'no_session', error: 'Inicia sesión con tu cuenta de Google.' };
+    try {
+      const data = await (await partesCore(fileId, demoMode)).listar();
+      return { ok: true, data, fetchedAt: new Date().toISOString(), source: demoMode ? 'demo' : 'google' };
+    } catch (e) {
+      if (e.code === 'no_session') return { ok: false, code: 'no_session', error: e.message };
+      if (e.status === 403 || e.status === 404) return { ok: false, code: 'sin_acceso', error: 'Tu cuenta de Google no tiene acceso al fichero de Pedidos, donde se guardan los partes de producción.' };
+      return { ok: false, code: 'error', error: e.message };
+    }
+  }
+
   // Mismo formato {ok, data, ...} que getPedidos, para reusar bloqueError().
   async function getOfertas(fileId, demoMode) {
     if (!demoMode && !fileId) return { ok: false, code: 'sin_fichero', error: 'Falta configurar el fichero de Pedidos (Ajustes).' };
@@ -445,5 +503,5 @@ const WebData = (() => {
     }
   }
 
-  return { getKpis, getPrecios, getPersonal, accesoKpis, pasarAPedido, guardarLineas, actualizarPedido, getPedidos, enviarOferta, ofertaGanada, ofertaPerdida, ofertaReabrir, getOfertas };
+  return { getKpis, getPrecios, getPersonal, accesoKpis, pasarAPedido, guardarLineas, actualizarPedido, getPedidos, enviarOferta, ofertaGanada, ofertaPerdida, ofertaReabrir, getOfertas, guardarParte, estadoParte, getPartes };
 })();
